@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TikTok Battle Simulator</title>
+    <link rel="stylesheet" href="/client/styles.css" />
+  </head>
+  <body class="simulatorBody">
+    <main class="simulator">
+      <h1>Webhook Simulator</h1>
+      <p>Use this panel while the overlay is open in another browser tab or OBS Browser Source.</p>
+
+      <label>
+        Username
+        <input id="username" value="viewer_1" maxlength="24" />
+      </label>
+      <label>
+        Coins
+        <input id="coins" type="number" value="10" min="0" />
+      </label>
+      <label>
+        Avatar URL
+        <input id="avatarUrl" placeholder="https://example.com/avatar.png" />
+      </label>
+
+      <div class="buttonRow">
+        <button data-action="join">Join</button>
+        <button data-action="gift">Gift HP</button>
+        <button data-action="ultimate">Ultimate</button>
+        <button data-action="avatar">Set Avatar</button>
+      </div>
+      <div class="buttonRow">
+        <button data-action="swarm">Spawn 40 Bots</button>
+        <button data-action="whales">Spawn Power Whales</button>
+      </div>
+      <div class="buttonRow">
+        <button data-action="reset" class="btn-danger">Reset Arena</button>
+      </div>
+
+      <pre id="result">Ready.</pre>
+      <p><a href="/client/overlay.html" target="_blank">Open overlay</a></p>
+    </main>
+    <script type="module" src="/client/src/simulator.js"></script>
+  </body>
+</html>

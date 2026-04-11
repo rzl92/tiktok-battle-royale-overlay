@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+assets/sounds/*.mp3
+localtunnel.out.log
+localtunnel.err.log
+cloudflared.out.log
+cloudflared.err.log
+.DS_Store
+Thumbs.db

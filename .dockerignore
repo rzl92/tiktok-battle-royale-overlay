@@ -1,0 +1,11 @@
+node_modules
+.git
+.env
+*.log
+localtunnel.out.log
+localtunnel.err.log
+cloudflared.out.log
+cloudflared.err.log
+npm-debug.log
+.DS_Store
+Thumbs.db

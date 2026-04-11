@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Fallback warrior avatar">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#f7fbff"/>
+      <stop offset="0.42" stop-color="#3df5ff"/>
+      <stop offset="1" stop-color="#ff3d6e"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="32" fill="#071015"/>
+  <circle cx="128" cy="128" r="108" fill="url(#bg)"/>
+  <path d="M72 184c10-38 31-57 56-57s46 19 56 57" fill="#081018" opacity=".75"/>
+  <circle cx="128" cy="92" r="38" fill="#081018" opacity=".78"/>
+  <path d="M55 128c20-18 39-28 57-31-13 19-18 35-14 49-17-1-31-7-43-18Zm146 0c-20-18-39-28-57-31 13 19 18 35 14 49 17-1 31-7 43-18Z" fill="#fff6a8" opacity=".75"/>
+</svg>
