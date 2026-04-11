@@ -10,33 +10,34 @@
     <main id="overlayRoot">
       <canvas id="arena" width="1080" height="1920" aria-label="Battle royale arena"></canvas>
       <section id="hud">
-        <div id="titleBlock">
-          <span class="eyebrow">LIVE BATTLE</span>
-          <h1>Spin Royale</h1>
-          <p id="statusLine">Join, power up, and unleash ultimates from live webhooks.</p>
+        <div id="leaderboardPanel">
+          <h2>Top Viewer</h2>
+          <ol id="leaderboard"></ol>
         </div>
-        <div id="audioControls">
-          <div class="audioGroup">
-            <button id="musicButton" class="audioToggle is-off" type="button">MUSIC OFF</button>
-            <input id="musicVolume" class="volumeSlider" type="range" min="0" max="100" value="100" aria-label="Music volume" />
-          </div>
-          <div class="audioGroup">
-            <button id="sfxButton" class="audioToggle is-off" type="button">SFX OFF</button>
-            <input id="sfxVolume" class="volumeSlider" type="range" min="0" max="100" value="35" aria-label="SFX volume" />
-          </div>
-        </div>
-        <button id="guideButton" type="button">User Guide</button>
-        <aside id="guidePanel" aria-hidden="true">
-          <div class="guideHeader">
-            <h2>User Guide</h2>
-            <button id="guideClose" type="button">X</button>
-          </div>
-          <p>
-            Overlay OBS: <code id="overlayUrl">http://localhost:3000/client/overlay.html</code>.
-            Keep the server running with <code>npm start</code>.
-          </p>
 
-          <section class="guideSection">
+        <button id="settingsButton" type="button" aria-label="Settings">&#9881;</button>
+
+        <aside id="settingsPanel" aria-hidden="true">
+          <div class="settingsHeader">
+            <h2>Settings</h2>
+            <button id="settingsClose" type="button">&#x2715;</button>
+          </div>
+
+          <div class="settingsSection">
+            <h3>Audio</h3>
+            <div id="audioControls">
+              <div class="audioGroup">
+                <button id="musicButton" class="audioToggle is-off" type="button">MUSIC OFF</button>
+                <input id="musicVolume" class="volumeSlider" type="range" min="0" max="100" value="100" aria-label="Music volume" />
+              </div>
+              <div class="audioGroup">
+                <button id="sfxButton" class="audioToggle is-off" type="button">SFX OFF</button>
+                <input id="sfxVolume" class="volumeSlider" type="range" min="0" max="100" value="35" aria-label="SFX volume" />
+              </div>
+            </div>
+          </div>
+
+          <section class="settingsSection guideSection">
             <h3>Tikfinity Webhooks</h3>
             <div class="webhookRow">
               <code>POST /webhook1</code>
@@ -64,13 +65,14 @@
             </div>
           </section>
 
-          <section class="guideSection">
+          <section class="settingsSection guideSection">
             <h3>Setup Tikfinity</h3>
             <p>Action type: <code>HTTP Request</code>. Method: <code>POST</code>. Content-Type: <code>application/json</code>.</p>
             <p>Example gift URL: <code id="giftWebhookUrl">http://localhost:3000/webhook2</code></p>
+            <p style="margin-top:6px">Overlay OBS: <code id="overlayUrl">http://localhost:3000/client/overlay.html</code></p>
           </section>
 
-          <section class="guideSection">
+          <section class="settingsSection guideSection">
             <h3>Tools</h3>
             <div class="guideActions">
               <a href="/simulator" target="_blank" rel="noopener">Open Simulator</a>
@@ -79,10 +81,6 @@
             </div>
           </section>
         </aside>
-        <div id="leaderboardPanel">
-          <h2>Top Gasing</h2>
-          <ol id="leaderboard"></ol>
-        </div>
       </section>
       <div id="winnerBanner" hidden></div>
     </main>

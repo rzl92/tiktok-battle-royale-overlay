@@ -18,6 +18,7 @@ document.addEventListener("click", async (event) => {
     }
     if (action === "swarm") await spawnSwarm(false);
     if (action === "whales") await spawnSwarm(true);
+    if (action === "reset") await call("/reset");
   } catch (error) {
     result.textContent = String(error);
   }

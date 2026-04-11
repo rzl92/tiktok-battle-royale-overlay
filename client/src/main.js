@@ -22,7 +22,7 @@ socket.on("state", (state) => {
   latestState = state;
   renderer.setState(state);
   ui.updateLeaderboard(state.leaderboard || []);
-  ui.updateWinner(state.roundWinner, state.resetAt);
+  ui.updateWinner(state.roundWinner);
 });
 
 socket.on("events", (events) => {

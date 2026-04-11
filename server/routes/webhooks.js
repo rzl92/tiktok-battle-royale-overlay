@@ -66,6 +66,11 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     res.json({ ok: true, eliminated: result.eliminated, player: summarize(result.player) });
   });
 
+  router.all(["/webhook4", "/reset"], (req, res) => {
+    battleEngine.manualReset();
+    res.json({ ok: true, message: "Arena reset" });
+  });
+
   router.all("/debug-webhook", (req, res) => {
     const record = rememberDebugRequest(debugRequests, req);
     res.json({ ok: true, received: record });

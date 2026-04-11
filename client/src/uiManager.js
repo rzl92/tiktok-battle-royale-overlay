@@ -7,9 +7,9 @@ export class UIManager {
     this.musicButton = document.getElementById("musicButton");
     this.sfxVolume = document.getElementById("sfxVolume");
     this.musicVolume = document.getElementById("musicVolume");
-    this.guideButton = document.getElementById("guideButton");
-    this.guidePanel = document.getElementById("guidePanel");
-    this.guideClose = document.getElementById("guideClose");
+    this.settingsButton = document.getElementById("settingsButton");
+    this.settingsPanel = document.getElementById("settingsPanel");
+    this.settingsClose = document.getElementById("settingsClose");
     this.renderAudioButtons();
     this.renderGuideUrls();
 
@@ -31,16 +31,16 @@ export class UIManager {
       this.sound.setMusicVolume(Number(this.musicVolume.value) / 100);
     });
 
-    this.guideButton.addEventListener("click", () => {
-      this.setGuideOpen(!this.guidePanel.classList.contains("open"));
+    this.settingsButton.addEventListener("click", () => {
+      this.setSettingsOpen(!this.settingsPanel.classList.contains("open"));
     });
 
-    this.guideClose.addEventListener("click", () => {
-      this.setGuideOpen(false);
+    this.settingsClose.addEventListener("click", () => {
+      this.setSettingsOpen(false);
     });
 
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") this.setGuideOpen(false);
+      if (event.key === "Escape") this.setSettingsOpen(false);
     });
 
     this.sound.setSfxVolume(Number(this.sfxVolume.value) / 100);
@@ -64,9 +64,9 @@ export class UIManager {
     document.getElementById("giftWebhookUrl").textContent = `${baseUrl}/webhook2`;
   }
 
-  setGuideOpen(open) {
-    this.guidePanel.classList.toggle("open", open);
-    this.guidePanel.setAttribute("aria-hidden", open ? "false" : "true");
+  setSettingsOpen(open) {
+    this.settingsPanel.classList.toggle("open", open);
+    this.settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
   }
 
   updateLeaderboard(entries) {
@@ -86,14 +86,17 @@ export class UIManager {
     );
   }
 
-  updateWinner(winner, resetAt) {
+  updateWinner(winner) {
     if (!winner) {
       this.winnerBanner.hidden = true;
       return;
     }
-    const seconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
     this.winnerBanner.hidden = false;
-    this.winnerBanner.textContent = `${winner.username} wins with ${winner.kills} kills / reset in ${seconds}`;
+    this.winnerBanner.innerHTML = `
+      <div class="winner-title">&#127942; Battle Winner</div>
+      <div class="winner-name">${escapeHtml(winner.username)}</div>
+      <div class="winner-meta">${winner.kills} kills &middot; ${winner.hp} HP remaining</div>
+    `;
   }
 
   addEvent(event) {

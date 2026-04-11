@@ -211,16 +211,16 @@ export class BattleEngine {
         className: winner.className,
         hp: Math.max(0, Math.floor(winner.hp))
       };
-      this.resetAt = now + this.config.round.resetSeconds * 1000;
-      this.pushEvent({ type: "winner", winner: this.roundWinner, resetAt: this.resetAt });
-    }
-
-    if (now >= this.resetAt) {
-      this.pushEvent({ type: "roundReset" });
-      this.playerManager.resetArena();
-      this.roundWinner = null;
       this.resetAt = 0;
+      this.pushEvent({ type: "winner", winner: this.roundWinner, resetAt: 0 });
     }
+  }
+
+  manualReset() {
+    this.pushEvent({ type: "roundReset" });
+    this.playerManager.resetArena();
+    this.roundWinner = null;
+    this.resetAt = 0;
   }
 
   wander(player, dt) {
