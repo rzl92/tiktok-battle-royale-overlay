@@ -63,6 +63,12 @@ This project includes `render.yaml` for Render Free Web Service deployment. See:
 docs/DEPLOY_RENDER.md
 ```
 
+If Render asks for a credit card, use Hugging Face Spaces Docker deployment instead:
+
+```text
+docs/DEPLOY_HUGGINGFACE.md
+```
+
 Optional:
 
 ```bash
