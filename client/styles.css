@@ -50,10 +50,10 @@ body {
   pointer-events: none;
 }
 
-/* ── Leaderboard – top left ──────────────────────────────── */
+/* ── Leaderboard – bottom left ──────────────────────────────── */
 #leaderboardPanel {
   position: absolute;
-  top: 16px;
+  bottom: 16px;
   left: 16px;
   width: min(230px, calc(100vw - 32px));
   border: 1px solid var(--line);
@@ -496,7 +496,7 @@ a {
   }
 
   #leaderboardPanel {
-    top: 8px;
+    bottom: 8px;
     left: 8px;
   }
 
