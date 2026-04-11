@@ -1,7 +1,10 @@
 const TWO_PI = Math.PI * 2;
 const MAX_EFFECTS = 70;
+const INTERPOLATION_DELAY_MS = 100;
+const MAX_EXTRAPOLATION_MS = 50;
+const PLAYER_SAMPLE_LIMIT = 8;
 
-// 24-color vibrant palette — each player gets a unique color derived from their ID hash
+// 24-color vibrant palette ? each player gets a unique color derived from their ID hash
 const PLAYER_COLORS = [
   { color: "#ff3d6e", accent: "#ffd0dc" },
   { color: "#42d6ff", accent: "#caf5ff" },
@@ -67,28 +70,20 @@ export class Renderer {
         const palette = PLAYER_COLORS[stableHash(player.id) % PLAYER_COLORS.length];
         this.displayPlayers.set(player.id, {
           ...player,
-          targetX: player.x,
-          targetY: player.y,
-          velX: 0,
-          velY: 0,
-          targetUpdatedAt: now,
+          samples: [{ time: now, x: player.x, y: player.y }],
           color: palette.color,
           accent: palette.accent
         });
       } else {
-        // Compute velocity from successive target positions so we can predict
-        // forward between state updates — eliminates "snap then decelerate" pattern
-        const interval = now - (current.targetUpdatedAt || now);
-        const velX = interval > 10 ? (player.x - current.targetX) / interval * 1000 : current.velX;
-        const velY = interval > 10 ? (player.y - current.targetY) / interval * 1000 : current.velY;
+        current.samples.push({ time: now, x: player.x, y: player.y });
+        if (current.samples.length > PLAYER_SAMPLE_LIMIT) {
+          current.samples.splice(0, current.samples.length - PLAYER_SAMPLE_LIMIT);
+        }
+
         Object.assign(current, player, {
           x: current.x,
           y: current.y,
-          targetX: player.x,
-          targetY: player.y,
-          velX,
-          velY,
-          targetUpdatedAt: now,
+          samples: current.samples,
           color: current.color,   // preserve per-player palette color
           accent: current.accent
         });
@@ -200,18 +195,11 @@ export class Renderer {
   }
 
   updateDisplayPositions(dt) {
-    // Frame-rate-independent alpha — closes ~95% of gap in ~48ms
-    const alpha = Math.min(0.55, 1 - Math.pow(0.001, dt / 150));
-    const now = performance.now();
+    const renderTime = performance.now() - INTERPOLATION_DELAY_MS;
     for (const player of this.displayPlayers.values()) {
-      // Extrapolate where the player is heading based on observed velocity,
-      // capped at 60ms to stay close to true position
-      const timeSince = (now - player.targetUpdatedAt) / 1000;
-      const predict = Math.min(timeSince, 0.06);
-      const predictX = player.targetX + (player.velX || 0) * predict;
-      const predictY = player.targetY + (player.velY || 0) * predict;
-      player.x += (predictX - player.x) * alpha;
-      player.y += (predictY - player.y) * alpha;
+      const position = samplePlayerPosition(player.samples, renderTime);
+      player.x = position.x;
+      player.y = position.y;
     }
     return [...this.displayPlayers.values()];
   }
@@ -727,7 +715,7 @@ function offsetPolar(angle, radius, offset) {
   };
 }
 
-// 20 distinct gear profiles — assigned per-player via ID hash for maximum visual variety
+// 20 distinct gear profiles ? assigned per-player via ID hash for maximum visual variety
 const GEAR_PROFILES = [
   { blades: 3,  length: 1.05, width: 0.30, base: 0.60, panels: 3,  hook: 0.26, spin: 0.019 }, //  0 tri-claw
   { blades: 3,  length: 0.88, width: 0.24, base: 0.65, panels: 3,  hook: 0.14, spin: 0.017 }, //  1 tri-wide
@@ -750,6 +738,42 @@ const GEAR_PROFILES = [
   { blades: 5,  length: 1.14, width: 0.14, base: 0.58, panels: 5,  hook: 0.28, spin: 0.020 }, // 18 penta dragon
   { blades: 4,  length: 1.00, width: 0.22, base: 0.62, panels: 4,  hook: 0.20, spin: 0.018 }, // 19 quad hawk
 ];
+
+function samplePlayerPosition(samples = [], renderTime) {
+  if (samples.length === 0) return { x: 0, y: 0 };
+  if (samples.length === 1 || renderTime <= samples[0].time) {
+    return { x: samples[0].x, y: samples[0].y };
+  }
+
+  for (let i = 0; i < samples.length - 1; i += 1) {
+    const from = samples[i];
+    const to = samples[i + 1];
+    if (renderTime <= to.time) {
+      const span = Math.max(1, to.time - from.time);
+      const t = (renderTime - from.time) / span;
+      return {
+        x: lerp(from.x, to.x, t),
+        y: lerp(from.y, to.y, t)
+      };
+    }
+  }
+
+  const latest = samples[samples.length - 1];
+  const previous = samples[samples.length - 2];
+  if (!previous) return { x: latest.x, y: latest.y };
+
+  const span = Math.max(1, latest.time - previous.time);
+  const overrun = Math.min(MAX_EXTRAPOLATION_MS, Math.max(0, renderTime - latest.time));
+  const t = overrun / span;
+  return {
+    x: latest.x + (latest.x - previous.x) * t,
+    y: latest.y + (latest.y - previous.y) * t
+  };
+}
+
+function lerp(from, to, t) {
+  return from + (to - from) * t;
+}
 
 function topProfile(id, className) {
   const hash = stableHash(id);
@@ -840,7 +864,7 @@ function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
   ctx.restore();
 }
 
-// Electric bolt for laser attacks — forked, flickering, re-randomized every frame
+// Electric bolt for laser attacks ? forked, flickering, re-randomized every frame
 function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
   const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.22);
 
@@ -873,7 +897,7 @@ function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 
-  // Fork branches (2–3 smaller bolts from random midpoints)
+  // Fork branches (2?3 smaller bolts from random midpoints)
   const dx = x2 - x1;
   const dy = y2 - y1;
   const blen = Math.hypot(dx, dy);
@@ -926,7 +950,7 @@ function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac) {
 
 // Returns health bar fill color based on HP ratio.
 // High HP players with aura keep their aura color. Everyone else:
-// 75-100% green → 50-75% yellow → 25-50% orange → 0-25% red
+// 75-100% green ? 50-75% yellow ? 25-50% orange ? 0-25% red
 function hpBarColor(ratio, hp, auraColor) {
   if (hp >= 1000) return auraColor;
   if (ratio > 0.75) return "#36ec88";
