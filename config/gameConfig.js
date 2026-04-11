@@ -19,7 +19,9 @@ export const gameConfig = {
       return Math.max(1, Math.floor((2 + Math.floor(hp * 0.03)) * classConfig.damageMultiplier));
     },
     attackRange(radius, classConfig) {
-      return Math.floor(radius + classConfig.attackRange);
+      // Base = touching distance for two equal tops (2*radius).
+      // Small class bonus so melee attacks when tops actually touch.
+      return Math.floor(radius * 2 + classConfig.attackRange * 0.28);
     },
     moveSpeed(classConfig, hp) {
       const giantPenalty = Math.min(hp / 7000, 0.7);
@@ -34,8 +36,8 @@ export const gameConfig = {
     ]
   },
   combat: {
-    targetScanIntervalMs: 450,
-    attackCooldownMs: 780,
+    targetScanIntervalMs: 200,
+    attackCooldownMs: 650,
     maxPlayers: 200,
     idleWanderTurnChance: 0.03
   },
@@ -45,8 +47,8 @@ export const gameConfig = {
     orbitStrength: 0.34,
     collisionBounce: 0.92,
     collisionPush: 0.72,
-    hitKnockback: 320,
-    attackerRecoil: 90,
+    hitKnockback: 190,
+    attackerRecoil: 55,
     maxVelocity: 580,
     spinJitter: 0.022,
     collisionCellSize: 280

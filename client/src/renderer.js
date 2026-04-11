@@ -53,6 +53,9 @@ export class Renderer {
   }
 
   addEvent(event) {
+    if (event.type === "spark") {
+      this.pushEffect({ kind: "spark", x: event.x, y: event.y, angle: event.angle || 0, speed: event.speed || 0.5, life: 240, max: 240 });
+    }
     if (event.type === "hit") {
       this.pushEffect({ kind: "hit", x: event.x, y: event.y, damage: event.damage, life: 360, max: 360 });
     }
@@ -535,6 +538,34 @@ export class Renderer {
       const point = this.worldToScreen(effect);
       ctx.save();
       ctx.globalCompositeOperation = effect.kind === "ultimate" ? "lighter" : "source-over";
+
+      if (effect.kind === "spark" && detail !== "low") {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        // 8 spokes radiating from contact point, half spread symmetrically
+        const spokes = 8;
+        const baseAngle = effect.angle;
+        const spreadHalf = Math.PI * 0.55; // 110-degree fan on each side
+        const maxLen = (10 + effect.speed * 18) * point.scale;
+        for (let i = 0; i < spokes; i++) {
+          const a = baseAngle + Math.PI + (i / (spokes - 1) - 0.5) * spreadHalf * 2;
+          const len = maxLen * t * (0.6 + 0.4 * Math.sin((i / spokes) * Math.PI));
+          const r = Math.floor(255);
+          const g = Math.floor(160 + 95 * t);
+          ctx.strokeStyle = `rgba(${r},${g},40,${t * 0.9})`;
+          ctx.lineWidth = (1.2 + t) * point.scale;
+          ctx.beginPath();
+          ctx.moveTo(point.x, point.y);
+          ctx.lineTo(point.x + Math.cos(a) * len, point.y + Math.sin(a) * len);
+          ctx.stroke();
+        }
+        // Small bright flash dot at contact
+        ctx.fillStyle = `rgba(255,255,200,${t * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 3 * t * point.scale, 0, TWO_PI);
+        ctx.fill();
+        ctx.restore();
+      }
 
       if (effect.kind === "hit" && detail !== "low") {
         ctx.strokeStyle = `rgba(235, 251, 255, ${0.85 * t})`;

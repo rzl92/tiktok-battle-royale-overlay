@@ -9,6 +9,7 @@ export class BattleEngine {
     this.lastTick = Date.now();
     this.broadcastAccumulator = 0;
     this.hitEventBudget = 0;
+    this.sparkEventBudget = 0;
   }
 
   start(tickRate) {
@@ -23,6 +24,7 @@ export class BattleEngine {
 
     const players = this.playerManager.getAlivePlayers();
     this.hitEventBudget = players.length > 100 ? 28 : players.length > 60 ? 42 : 90;
+    this.sparkEventBudget = players.length > 80 ? 4 : players.length > 40 ? 8 : 14;
     if (players.length > 1) {
       this.roundWinner = null;
       this.resetAt = 0;
@@ -87,7 +89,9 @@ export class BattleEngine {
       seen += 1;
       if (Math.random() < 1 / seen) randomPick = candidate;
 
-      const score = distanceSq(player, candidate) + candidate.hp * 3.5;
+      let score = distanceSq(player, candidate) + candidate.hp * 3.5;
+      // Sticky bias: current target gets 30% score discount so we don't flip too often
+      if (candidate.id === player.targetId) score *= 0.7;
       if (score < bestScore) {
         bestScore = score;
         best = candidate;
@@ -95,11 +99,14 @@ export class BattleEngine {
     }
 
     if (!best) return null;
-    return Math.random() < 0.78 ? best : randomPick || best;
+    // 80% pick best (closest/weakest), 20% pick random for variety
+    return Math.random() < 0.80 ? best : randomPick || best;
   }
 
   tryAttack(attacker, target, now) {
-    const cooldown = this.config.combat.attackCooldownMs * attacker.classConfig.attackCooldownMultiplier;
+    // Jitter ±22% so attack timing feels natural and asymmetric
+    const jitter = 0.78 + Math.random() * 0.44;
+    const cooldown = this.config.combat.attackCooldownMs * attacker.classConfig.attackCooldownMultiplier * jitter;
     if (now - attacker.lastAttackAt < cooldown) return;
     attacker.lastAttackAt = now;
 
@@ -136,6 +143,13 @@ export class BattleEngine {
         damage,
         hitType: type
       });
+    }
+
+    // Retaliation: if target is still alive, immediately switch its focus to the attacker
+    // so combat feels mutual rather than one-sided.
+    if (target.alive && target.targetId !== attacker.id && Math.random() < 0.75) {
+      target.targetId = attacker.id;
+      target.lastTargetScanAt = Date.now(); // defer next scan so target stays locked
     }
 
     if (target.hp <= 0 && target.alive) {
@@ -297,7 +311,8 @@ export class BattleEngine {
   }
 
   resolvePair(a, b) {
-    const minDist = (a.radius + b.radius) * 0.82;
+    // 0.97 so physics fires just as tops visually touch (near-perfect surface contact)
+    const minDist = (a.radius + b.radius) * 0.97;
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const distSq = dx * dx + dy * dy;
@@ -331,6 +346,20 @@ export class BattleEngine {
     b.vy += impulseY / massB;
     this.capVelocity(a);
     this.capVelocity(b);
+
+    // Spark at contact surface point (only if collision has meaningful speed)
+    const impactSpeed = Math.abs(separatingVelocity);
+    if (this.sparkEventBudget > 0 && impactSpeed > 40) {
+      this.sparkEventBudget -= 1;
+      // Contact point: on surface of a toward b
+      this.pushEvent({
+        type: "spark",
+        x: a.x + nx * a.radius,
+        y: a.y + ny * a.radius,
+        angle: Math.atan2(ny, nx),
+        speed: Math.min(1, impactSpeed / 300)
+      });
+    }
   }
 
   capVelocity(player) {
