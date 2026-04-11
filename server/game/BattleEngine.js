@@ -111,7 +111,11 @@ export class BattleEngine {
     attacker.lastAttackAt = now;
 
     const variance = 0.85 + Math.random() * 0.35;
-    const damage = Math.max(1, Math.floor(attacker.damage * variance * target.classConfig.damageTakenMultiplier));
+    const rawDamage = Math.max(1, Math.floor(attacker.damage * variance * target.classConfig.damageTakenMultiplier));
+    // Every top can always chip the target: minimum 1% of target's current HP per hit.
+    // This ensures no top is immortal regardless of HP gap, while big tops still dominate.
+    const minDamage = Math.max(1, Math.ceil(target.hp * 0.010));
+    const damage = Math.max(rawDamage, minDamage);
     this.damagePlayer({ attacker, target, damage, type: attacker.className === "Mage" ? "burst" : "strike" });
 
     const dx = target.x - attacker.x;
