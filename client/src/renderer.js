@@ -512,12 +512,12 @@ export class Renderer {
     ctx.fillText(trimName(player.username), x, top + 10);
     ctx.fillStyle = "#b9c9d6";
     ctx.font = "800 10px system-ui";
-    ctx.fillText(`${player.hp} HP / ${player.kills} K`, x, top + 23);
+    ctx.fillText(`${player.hp} HP / ${player.kills} P`, x, top + 23);
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
     roundRect(ctx, x - width / 2, top + 36, width, 8, 4);
     ctx.fill();
-    ctx.fillStyle = player.hp >= 1000 ? this.getAuraColor(player) : "#36ec88";
+    ctx.fillStyle = hpBarColor(hpPercent, player.hp, this.getAuraColor(player));
     roundRect(ctx, x - width / 2, top + 36, width * hpPercent, 8, 4);
     ctx.fill();
     ctx.restore();
@@ -710,6 +710,17 @@ function roundRect(ctx, x, y, width, height, radius) {
   ctx.arcTo(x, y + height, x, y, radius);
   ctx.arcTo(x, y, x + width, y, radius);
   ctx.closePath();
+}
+
+// Returns health bar fill color based on HP ratio.
+// High HP players with aura keep their aura color. Everyone else:
+// 75-100% green → 50-75% yellow → 25-50% orange → 0-25% red
+function hpBarColor(ratio, hp, auraColor) {
+  if (hp >= 1000) return auraColor;
+  if (ratio > 0.75) return "#36ec88";
+  if (ratio > 0.50) return "#f0d020";
+  if (ratio > 0.25) return "#ff8c20";
+  return "#ff3030";
 }
 
 function hexToRgba(hex, alpha) {

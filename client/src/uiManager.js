@@ -143,7 +143,7 @@ export class UIManager {
             <span class="boardName">${escapeHtml(entry.username)}</span>
             <span class="boardMeta">${entry.hp} HP</span>
           </span>
-          <span class="boardKills">${entry.kills} K</span>
+          <span class="boardKills">${entry.kills} P</span>
         `;
         return item;
       })
