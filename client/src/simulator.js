@@ -43,7 +43,8 @@ async function spawnSwarm(power) {
   const prefix = power ? "whale" : "fighter";
   for (let i = 1; i <= 40; i += 1) {
     const name = `${prefix}_${Math.floor(Math.random() * 9999)}_${i}`;
-    await fetch(`/webhook1?username=${encodeURIComponent(name)}`);
+    const avatarUrl = `https://api.dicebear.com/8.x/pixel-art/svg?seed=${encodeURIComponent(name)}`;
+    await fetch(`/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
     if (power && i <= 8) {
       await fetch(`/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
     }

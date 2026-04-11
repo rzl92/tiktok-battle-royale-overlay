@@ -7,8 +7,8 @@ export const gameConfig = {
   player: {
     baseHP: 15,
     giftHPPerCoin: 25,
-    baseRadius: 24,
-    maxRenderedRadius: 280,
+    baseRadius: 52,
+    maxRenderedRadius: 340,
     respawnInvulnerabilityMs: 1200
   },
   formulas: {
