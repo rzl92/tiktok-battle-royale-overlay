@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.log
+localtunnel.out.log
+localtunnel.err.log
+cloudflared.out.log
+cloudflared.err.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: tiktok-battle-royale-overlay
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: OVERLAY_TRANSPARENT
+        value: "false"
+      - key: TICK_RATE
+        value: "30"
+      - key: ROUND_RESET_SECONDS
+        value: "8"

@@ -1,0 +1,30 @@
+{
+  "name": "tiktok-battle-royale-overlay",
+  "version": "1.0.0",
+  "description": "TikTok Live interactive battle royale auto-battler overlay for OBS Browser Source.",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "check": "node --check server/index.js && node --check server/game/BattleEngine.js && node --check server/game/PlayerManager.js && node --check server/game/AvatarResolver.js && node --check server/routes/webhooks.js && node --check server/routes/simulator.js"
+  },
+  "keywords": [
+    "tiktok",
+    "live",
+    "battle-royale",
+    "obs",
+    "overlay",
+    "canvas",
+    "socket.io"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {}
+}
