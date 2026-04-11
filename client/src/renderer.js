@@ -1,6 +1,34 @@
 const TWO_PI = Math.PI * 2;
 const MAX_EFFECTS = 70;
 
+// 24-color vibrant palette — each player gets a unique color derived from their ID hash
+const PLAYER_COLORS = [
+  { color: "#ff3d6e", accent: "#ffd0dc" },
+  { color: "#42d6ff", accent: "#caf5ff" },
+  { color: "#ff8c00", accent: "#ffe5cc" },
+  { color: "#44e87c", accent: "#cdfae0" },
+  { color: "#c060ff", accent: "#e8ccff" },
+  { color: "#f5d020", accent: "#fffacc" },
+  { color: "#ff2d55", accent: "#ffccd6" },
+  { color: "#00e5c9", accent: "#ccfff8" },
+  { color: "#ff6b35", accent: "#ffdecf" },
+  { color: "#3d7fff", accent: "#cce0ff" },
+  { color: "#ff30e8", accent: "#ffc0fb" },
+  { color: "#7fff00", accent: "#e8ffcc" },
+  { color: "#ff5e78", accent: "#ffd0d8" },
+  { color: "#d4ff3e", accent: "#f5ffcc" },
+  { color: "#ff00aa", accent: "#ffccee" },
+  { color: "#00aaff", accent: "#ccecff" },
+  { color: "#ffc200", accent: "#fff8cc" },
+  { color: "#ff4500", accent: "#ffd5cc" },
+  { color: "#8b2be2", accent: "#ddc0ff" },
+  { color: "#00ff88", accent: "#ccffe8" },
+  { color: "#ff0040", accent: "#ffccdb" },
+  { color: "#20f0e8", accent: "#ccfcfb" },
+  { color: "#ff80cc", accent: "#ffd6ef" },
+  { color: "#aaff00", accent: "#eeffcc" },
+];
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -36,7 +64,14 @@ export class Renderer {
       alive.add(player.id);
       const current = this.displayPlayers.get(player.id);
       if (!current) {
-        this.displayPlayers.set(player.id, { ...player, targetX: player.x, targetY: player.y });
+        const palette = PLAYER_COLORS[stableHash(player.id) % PLAYER_COLORS.length];
+        this.displayPlayers.set(player.id, {
+          ...player,
+          targetX: player.x,
+          targetY: player.y,
+          color: palette.color,
+          accent: palette.accent
+        });
       } else {
         Object.assign(current, player, {
           x: current.x,
@@ -210,6 +245,7 @@ export class Renderer {
     if (player.auraLevel > 0) this.drawAura(x, y, r, player, time, detail);
     if (detail === "high") this.drawShadow(x, y, r);
     if (detail !== "medium" || player.auraLevel > 0) this.drawSpeedLines(x, y, r, spin, player);
+    if (player.dashing) this.drawDashTrail(x, y, r, player, time);
 
     ctx.save();
     ctx.translate(x, y);
@@ -451,6 +487,32 @@ export class Renderer {
     ctx.restore();
   }
 
+  drawDashTrail(x, y, r, player, time) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const pulse = 0.5 + Math.sin(time * 0.025) * 0.5;
+    // Electric arcs radiating outward during dash
+    const arcCount = 6;
+    for (let i = 0; i < arcCount; i++) {
+      const angle = (i / arcCount) * TWO_PI + time * 0.004;
+      const len = r * (1.2 + pulse * 0.4);
+      ctx.strokeStyle = hexToRgba(player.color, 0.55 * (0.6 + pulse * 0.4));
+      ctx.lineWidth = Math.max(1, r * 0.04);
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(angle) * r * 0.9, y + Math.sin(angle) * r * 0.9);
+      ctx.lineTo(x + Math.cos(angle + 0.15) * len, y + Math.sin(angle + 0.15) * len);
+      ctx.stroke();
+    }
+    // Outer flash ring
+    ctx.strokeStyle = hexToRgba(player.accent, 0.5 * pulse);
+    ctx.lineWidth = Math.max(1.5, r * 0.05);
+    ctx.beginPath();
+    ctx.arc(x, y, r * (1.35 + pulse * 0.12), 0, TWO_PI);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawAvatar(player, x, y, r) {
     const ctx = this.ctx;
     const image = this.getImage(player.avatarUrl);
@@ -570,33 +632,7 @@ export class Renderer {
       if (effect.kind === "laser") {
         const endPt = this.worldToScreen({ x: effect.tx, y: effect.ty });
         ctx.globalCompositeOperation = "lighter";
-        // Outer glow
-        ctx.strokeStyle = hexToRgba(effect.color, 0.32 * t);
-        ctx.lineWidth = (8 + 4 * t) * point.scale;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
-        ctx.lineTo(endPt.x, endPt.y);
-        ctx.stroke();
-        // Mid glow
-        ctx.strokeStyle = hexToRgba(effect.color, 0.55 * t);
-        ctx.lineWidth = (3 + 2 * t) * point.scale;
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
-        ctx.lineTo(endPt.x, endPt.y);
-        ctx.stroke();
-        // Bright white core
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * t})`;
-        ctx.lineWidth = (1 + t) * point.scale;
-        ctx.beginPath();
-        ctx.moveTo(point.x, point.y);
-        ctx.lineTo(endPt.x, endPt.y);
-        ctx.stroke();
-        // Impact flash at hit point
-        ctx.fillStyle = `rgba(255, 255, 255, ${t * 0.85})`;
-        ctx.beginPath();
-        ctx.arc(endPt.x, endPt.y, (5 + 4 * t) * point.scale, 0, TWO_PI);
-        ctx.fill();
+        drawElectricBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, point.scale);
       }
 
       if ((effect.kind === "burst" || effect.kind === "power") && detail !== "low") {
@@ -694,21 +730,33 @@ function offsetPolar(angle, radius, offset) {
   };
 }
 
+// 20 distinct gear profiles — assigned per-player via ID hash for maximum visual variety
+const GEAR_PROFILES = [
+  { blades: 3,  length: 1.05, width: 0.30, base: 0.60, panels: 3,  hook: 0.26, spin: 0.019 }, //  0 tri-claw
+  { blades: 3,  length: 0.88, width: 0.24, base: 0.65, panels: 3,  hook: 0.14, spin: 0.017 }, //  1 tri-wide
+  { blades: 4,  length: 0.88, width: 0.20, base: 0.68, panels: 4,  hook: 0.15, spin: 0.014 }, //  2 quad classic
+  { blades: 4,  length: 0.58, width: 0.30, base: 0.72, panels: 4,  hook: 0.06, spin: 0.010 }, //  3 quad stubby
+  { blades: 5,  length: 0.94, width: 0.12, base: 0.66, panels: 5,  hook: 0.22, spin: 0.017 }, //  4 penta sharp
+  { blades: 5,  length: 0.72, width: 0.18, base: 0.70, panels: 5,  hook: 0.10, spin: 0.012 }, //  5 penta star
+  { blades: 6,  length: 0.64, width: 0.16, base: 0.68, panels: 6,  hook: 0.14, spin: 0.012 }, //  6 hex classic
+  { blades: 6,  length: 0.50, width: 0.26, base: 0.76, panels: 6,  hook: 0.05, spin: 0.009 }, //  7 hex squat
+  { blades: 7,  length: 0.86, width: 0.20, base: 0.70, panels: 7,  hook: 0.17, spin: 0.013 }, //  8 sept berserker
+  { blades: 7,  length: 0.60, width: 0.15, base: 0.72, panels: 7,  hook: 0.08, spin: 0.011 }, //  9 sept round
+  { blades: 8,  length: 0.68, width: 0.18, base: 0.70, panels: 8,  hook: 0.13, spin: 0.013 }, // 10 oct medium
+  { blades: 8,  length: 0.44, width: 0.24, base: 0.74, panels: 8,  hook: 0.07, spin: 0.009 }, // 11 oct tank
+  { blades: 9,  length: 0.56, width: 0.13, base: 0.66, panels: 9,  hook: 0.20, spin: 0.011 }, // 12 nine mage
+  { blades: 9,  length: 0.80, width: 0.10, base: 0.64, panels: 9,  hook: 0.24, spin: 0.014 }, // 13 nine slim
+  { blades: 10, length: 0.74, width: 0.11, base: 0.64, panels: 10, hook: 0.18, spin: 0.016 }, // 14 ten assassin
+  { blades: 10, length: 0.54, width: 0.16, base: 0.68, panels: 10, hook: 0.10, spin: 0.013 }, // 15 ten fan
+  { blades: 11, length: 0.62, width: 0.10, base: 0.66, panels: 11, hook: 0.12, spin: 0.014 }, // 16 eleven
+  { blades: 12, length: 0.52, width: 0.09, base: 0.68, panels: 12, hook: 0.09, spin: 0.015 }, // 17 twelve fine
+  { blades: 5,  length: 1.14, width: 0.14, base: 0.58, panels: 5,  hook: 0.28, spin: 0.020 }, // 18 penta dragon
+  { blades: 4,  length: 1.00, width: 0.22, base: 0.62, panels: 4,  hook: 0.20, spin: 0.018 }, // 19 quad hawk
+];
+
 function topProfile(id, className) {
-  const profiles = {
-    Swordsman: { blades: 6, length: 0.64, width: 0.16, base: 0.68, panels: 6, hook: 0.14, spin: 0.012 },
-    Tank: { blades: 8, length: 0.44, width: 0.22, base: 0.74, panels: 8, hook: 0.08, spin: 0.009 },
-    Assassin: { blades: 10, length: 0.74, width: 0.11, base: 0.64, panels: 10, hook: 0.18, spin: 0.016 },
-    Berserker: { blades: 7, length: 0.86, width: 0.2, base: 0.7, panels: 7, hook: 0.16, spin: 0.013 },
-    Mage: { blades: 9, length: 0.56, width: 0.13, base: 0.66, panels: 9, hook: 0.2, spin: 0.011 }
-  };
-  const profile = profiles[className] || profiles.Swordsman;
-  const variant = stableHash(id) % 3;
-  return {
-    ...profile,
-    length: profile.length + variant * 0.035,
-    hook: profile.hook + variant * 0.018
-  };
+  const hash = stableHash(id);
+  return GEAR_PROFILES[hash % GEAR_PROFILES.length];
 }
 
 function strongest(players = []) {
@@ -793,6 +841,87 @@ function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
     ctx.fill();
   }
   ctx.restore();
+}
+
+// Electric bolt for laser attacks — forked, flickering, re-randomized every frame
+function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
+  const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.18);
+
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // Outer diffuse glow
+  ctx.strokeStyle = `rgba(80, 180, 255, ${t * 0.28})`;
+  ctx.lineWidth = (10 + 6 * t) * scale;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // Mid glow
+  ctx.strokeStyle = `rgba(160, 220, 255, ${t * 0.55})`;
+  ctx.lineWidth = (3.5 + 2 * t) * scale;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // Bright white-cyan core
+  ctx.strokeStyle = `rgba(230, 248, 255, ${t * 0.92})`;
+  ctx.lineWidth = (1.2 + t) * scale;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // Fork branches (2 smaller bolts from random midpoints)
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const blen = Math.hypot(dx, dy);
+  for (let f = 0; f < 2; f++) {
+    const si = 2 + Math.floor(Math.random() * (pts.length - 4));
+    const pt = pts[si];
+    const fAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.4;
+    const fLen = blen * (0.12 + Math.random() * 0.18);
+    ctx.strokeStyle = `rgba(120, 200, 255, ${t * 0.45})`;
+    ctx.lineWidth = (0.8 + t * 0.5) * scale;
+    ctx.beginPath();
+    ctx.moveTo(pt.x, pt.y);
+    ctx.lineTo(pt.x + Math.cos(fAngle) * fLen, pt.y + Math.sin(fAngle) * fLen);
+    ctx.stroke();
+  }
+
+  // Source spark
+  ctx.fillStyle = `rgba(200, 240, 255, ${t * 0.80})`;
+  ctx.beginPath();
+  ctx.arc(x1, y1, (4 + 2 * t) * scale, 0, TWO_PI);
+  ctx.fill();
+
+  // Impact flash at endpoint
+  ctx.fillStyle = `rgba(255, 255, 200, ${t * 0.90})`;
+  ctx.beginPath();
+  ctx.arc(x2, y2, (6 + 5 * t) * scale, 0, TWO_PI);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const jitter = len * jitterFrac;
+  const px = -dy / len;
+  const py = dx / len;
+  const pts = [{ x: x1, y: y1 }];
+  for (let i = 1; i < segments; i++) {
+    const frac = i / segments;
+    const offset = (Math.random() - 0.5) * jitter * (1 - Math.abs(frac - 0.5) * 1.3);
+    pts.push({ x: x1 + dx * frac + px * offset, y: y1 + dy * frac + py * offset });
+  }
+  pts.push({ x: x2, y: y2 });
+  return pts;
 }
 
 // Returns health bar fill color based on HP ratio.

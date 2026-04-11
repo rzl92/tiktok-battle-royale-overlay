@@ -44,6 +44,8 @@ export class PlayerManager {
       lastLaserAt: 0,
       lastTargetScanAt: 0,
       lastUltimateAt: -Infinity,
+      dashUntil: 0,
+      dashPhase: 1,
       joinedAt: Date.now(),
       auraLevel: getAuraLevel(hp, this.config),
       avatarUrl: this.avatarResolver.resolve(cleanName)

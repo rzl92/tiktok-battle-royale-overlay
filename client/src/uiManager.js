@@ -204,8 +204,18 @@ export class UIManager {
       ? `<div class="winner-countdown">Resetting in <span class="winner-countdown-num">${secondsLeft}</span> seconds</div>`
       : `<div class="winner-countdown">Reset manually via Simulator</div>`;
 
+    const avatarSrc = winner.avatarUrl
+      ? (winner.avatarUrl.startsWith("http://") || winner.avatarUrl.startsWith("https://")
+          ? `/avatar-proxy?url=${encodeURIComponent(winner.avatarUrl)}`
+          : escapeHtml(winner.avatarUrl))
+      : null;
+    const avatarHtml = avatarSrc
+      ? `<img class="winner-avatar" src="${avatarSrc}" alt="" onerror="this.style.display='none'">`
+      : `<div class="winner-avatar-placeholder">${escapeHtml(winner.username.slice(0, 1).toUpperCase())}</div>`;
+
     this.winnerBanner.innerHTML = `
       <div class="winner-title">&#127942; Battle Winner</div>
+      ${avatarHtml}
       <div class="winner-name">${escapeHtml(winner.username)}</div>
       <div class="winner-meta">${winner.kills} kills &middot; ${winner.hp} HP remaining</div>
       ${countdownHtml}

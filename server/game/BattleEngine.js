@@ -55,6 +55,13 @@ export class BattleEngine {
         continue;
       }
 
+      // Random zigzag dash: triggers occasionally on any player regardless of HP
+      if (now > player.dashUntil && Math.random() < 0.0007) {
+        player.dashUntil = now + 1200 + Math.random() * 1600; // 1.2–2.8 s
+        player.dashPhase = Math.random() < 0.5 ? 1 : -1;
+      }
+      const isDashing = now < player.dashUntil;
+
       const dx = target.x - player.x;
       const dy = target.y - player.y;
       const distance = Math.hypot(dx, dy) || 1;
@@ -68,7 +75,15 @@ export class BattleEngine {
       const physicalContactDist = player.radius + target.radius;
       const effectiveRange = Math.max(player.attackRange, physicalContactDist * 1.1);
 
-      if (distance > effectiveRange * 0.92) {
+      if (isDashing) {
+        // Zigzag dash: alternate perpendicular direction every ~160ms while charging target
+        const zigDir = (Math.floor(now / 160) % 2 === 0 ? player.dashPhase : -player.dashPhase);
+        const dashSpeed = player.speed * 2.4;
+        const sideSpeed = player.speed * 1.6;
+        this.steer(player, nx * dashSpeed + (-ny * sideSpeed * zigDir), ny * dashSpeed + (nx * sideSpeed * zigDir));
+        this.move(player, dt);
+        this.tryAttack(player, target, now);
+      } else if (distance > effectiveRange * 0.92) {
         const orbit = distance < effectiveRange * 2.2 ? this.config.physics.orbitStrength : 0.08;
         const desiredX = nx * player.speed + -ny * player.speed * orbit;
         const desiredY = ny * player.speed + nx * player.speed * orbit;
@@ -297,7 +312,8 @@ export class BattleEngine {
         username: winner.username,
         kills: winner.kills,
         className: winner.className,
-        hp: Math.max(0, Math.floor(winner.hp))
+        hp: Math.max(0, Math.floor(winner.hp)),
+        avatarUrl: winner.avatarUrl || null
       };
       this.resetAt = 0;
       this.pushEvent({ type: "winner", winner: this.roundWinner, resetAt: 0 });
@@ -488,7 +504,8 @@ function publicPlayer(player) {
     auraLevel: player.auraLevel,
     avatarUrl: player.avatarUrl,
     color: player.classConfig.color,
-    accent: player.classConfig.accent
+    accent: player.classConfig.accent,
+    dashing: Date.now() < (player.dashUntil || 0)
   };
 }
 
