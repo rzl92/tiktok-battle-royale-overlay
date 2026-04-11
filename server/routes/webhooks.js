@@ -81,8 +81,8 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
 
 function getInput(req) {
   return {
-    ...req.query,
-    ...(typeof req.body === "object" && req.body ? req.body : {})
+    ...(typeof req.body === "object" && req.body ? req.body : {}),
+    ...req.query
   };
 }
 
