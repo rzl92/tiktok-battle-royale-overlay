@@ -77,7 +77,9 @@ export class Renderer {
           x: current.x,
           y: current.y,
           targetX: player.x,
-          targetY: player.y
+          targetY: player.y,
+          color: current.color,   // preserve per-player palette color
+          accent: current.accent
         });
       }
     }

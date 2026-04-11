@@ -76,11 +76,11 @@ export class BattleEngine {
       const effectiveRange = Math.max(player.attackRange, physicalContactDist * 1.1);
 
       if (isDashing) {
-        // Zigzag dash: alternate perpendicular direction every ~160ms while charging target
-        const zigDir = (Math.floor(now / 160) % 2 === 0 ? player.dashPhase : -player.dashPhase);
-        const dashSpeed = player.speed * 2.4;
-        const sideSpeed = player.speed * 1.6;
-        this.steer(player, nx * dashSpeed + (-ny * sideSpeed * zigDir), ny * dashSpeed + (nx * sideSpeed * zigDir));
+        // Zigzag dash: sine-wave weave so direction changes are smooth, not abrupt
+        const zigFactor = Math.sin(now * 0.005) * player.dashPhase;
+        const dashSpeed = player.speed * 1.65;
+        const sideSpeed = player.speed * 0.9;
+        this.steer(player, nx * dashSpeed + (-ny * sideSpeed * zigFactor), ny * dashSpeed + (nx * sideSpeed * zigFactor));
         this.move(player, dt);
         this.tryAttack(player, target, now);
       } else if (distance > effectiveRange * 0.92) {
