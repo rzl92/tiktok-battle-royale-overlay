@@ -25,6 +25,60 @@
             <input id="sfxVolume" class="volumeSlider" type="range" min="0" max="100" value="35" aria-label="SFX volume" />
           </div>
         </div>
+        <button id="guideButton" type="button">User Guide</button>
+        <aside id="guidePanel" aria-hidden="true">
+          <div class="guideHeader">
+            <h2>User Guide</h2>
+            <button id="guideClose" type="button">X</button>
+          </div>
+          <p>
+            Overlay OBS: <code id="overlayUrl">http://localhost:3000/client/overlay.html</code>.
+            Keep the server running with <code>npm start</code>.
+          </p>
+
+          <section class="guideSection">
+            <h3>Tikfinity Webhooks</h3>
+            <div class="webhookRow">
+              <code>POST /webhook1</code>
+              <span>Join player. Body: <code>{"username":"{nickname}"}</code></span>
+            </div>
+            <div class="webhookRow">
+              <code>POST /join</code>
+              <span>Join alias. Body: <code>{"username":"{nickname}"}</code></span>
+            </div>
+            <div class="webhookRow">
+              <code>POST /webhook2</code>
+              <span>Gift boost. Body: <code>{"username":"{nickname}","coins":"{giftCount}"}</code></span>
+            </div>
+            <div class="webhookRow">
+              <code>POST /gift</code>
+              <span>Gift alias. Body: <code>{"username":"{nickname}","coins":"{giftCount}"}</code></span>
+            </div>
+            <div class="webhookRow">
+              <code>POST /webhook3</code>
+              <span>Ultimate attack. Body: <code>{"username":"{nickname}"}</code></span>
+            </div>
+            <div class="webhookRow">
+              <code>POST /ultimate</code>
+              <span>Ultimate alias. Body: <code>{"username":"{nickname}"}</code></span>
+            </div>
+          </section>
+
+          <section class="guideSection">
+            <h3>Setup Tikfinity</h3>
+            <p>Action type: <code>HTTP Request</code>. Method: <code>POST</code>. Content-Type: <code>application/json</code>.</p>
+            <p>Example gift URL: <code id="giftWebhookUrl">http://localhost:3000/webhook2</code></p>
+          </section>
+
+          <section class="guideSection">
+            <h3>Tools</h3>
+            <div class="guideActions">
+              <a href="/simulator" target="_blank" rel="noopener">Open Simulator</a>
+              <a href="/debug-last" target="_blank" rel="noopener">Debug Last Webhooks</a>
+              <a href="/health" target="_blank" rel="noopener">Health Check</a>
+            </div>
+          </section>
+        </aside>
         <div id="leaderboardPanel">
           <h2>Top Gasing</h2>
           <ol id="leaderboard"></ol>

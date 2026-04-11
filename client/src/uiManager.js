@@ -7,7 +7,11 @@ export class UIManager {
     this.musicButton = document.getElementById("musicButton");
     this.sfxVolume = document.getElementById("sfxVolume");
     this.musicVolume = document.getElementById("musicVolume");
+    this.guideButton = document.getElementById("guideButton");
+    this.guidePanel = document.getElementById("guidePanel");
+    this.guideClose = document.getElementById("guideClose");
     this.renderAudioButtons();
+    this.renderGuideUrls();
 
     this.sfxButton.addEventListener("click", async () => {
       await this.sound.toggleSfx();
@@ -27,6 +31,18 @@ export class UIManager {
       this.sound.setMusicVolume(Number(this.musicVolume.value) / 100);
     });
 
+    this.guideButton.addEventListener("click", () => {
+      this.setGuideOpen(!this.guidePanel.classList.contains("open"));
+    });
+
+    this.guideClose.addEventListener("click", () => {
+      this.setGuideOpen(false);
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") this.setGuideOpen(false);
+    });
+
     this.sound.setSfxVolume(Number(this.sfxVolume.value) / 100);
     this.sound.setMusicVolume(Number(this.musicVolume.value) / 100);
   }
@@ -40,6 +56,17 @@ export class UIManager {
     button.textContent = `${label} ${enabled ? "ON" : "OFF"}`;
     button.classList.toggle("is-on", enabled);
     button.classList.toggle("is-off", !enabled);
+  }
+
+  renderGuideUrls() {
+    const baseUrl = window.location.origin;
+    document.getElementById("overlayUrl").textContent = `${baseUrl}/client/overlay.html`;
+    document.getElementById("giftWebhookUrl").textContent = `${baseUrl}/webhook2`;
+  }
+
+  setGuideOpen(open) {
+    this.guidePanel.classList.toggle("open", open);
+    this.guidePanel.setAttribute("aria-hidden", open ? "false" : "true");
   }
 
   updateLeaderboard(entries) {
