@@ -473,18 +473,16 @@ export class Renderer {
 
   drawSpeedLines(x, y, r, spin, player) {
     const ctx = this.ctx;
-    const count = player.boosted ? 9 : 5;
-    const alpha = player.boosted ? 0.38 : 0.18;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(spin * 0.38);
     ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = hexToRgba(player.accent, alpha);
-    ctx.lineWidth = Math.max(2, r * (player.boosted ? 0.055 : 0.04));
-    for (let i = 0; i < count; i += 1) {
-      ctx.rotate(TWO_PI / count);
+    ctx.strokeStyle = hexToRgba(player.accent, 0.18);
+    ctx.lineWidth = Math.max(2, r * 0.04);
+    for (let i = 0; i < 5; i += 1) {
+      ctx.rotate(TWO_PI / 5);
       ctx.beginPath();
-      ctx.arc(0, 0, r * (0.96 + i * 0.04), -0.2, 1.18);
+      ctx.arc(0, 0, r * (0.96 + i * 0.045), -0.2, 1.18);
       ctx.stroke();
     }
     ctx.restore();
