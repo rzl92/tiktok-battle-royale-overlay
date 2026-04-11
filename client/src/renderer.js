@@ -55,10 +55,10 @@ export class Renderer {
   setState(state) {
     this.state = state || { players: [], leaderboard: [] };
     this.syncDisplayPlayers(this.state.players || []);
-    this.updateCamera();
   }
 
   syncDisplayPlayers(players) {
+    const now = performance.now();
     const alive = new Set();
     for (const player of players) {
       alive.add(player.id);
@@ -69,15 +69,26 @@ export class Renderer {
           ...player,
           targetX: player.x,
           targetY: player.y,
+          velX: 0,
+          velY: 0,
+          targetUpdatedAt: now,
           color: palette.color,
           accent: palette.accent
         });
       } else {
+        // Compute velocity from successive target positions so we can predict
+        // forward between state updates — eliminates "snap then decelerate" pattern
+        const interval = now - (current.targetUpdatedAt || now);
+        const velX = interval > 10 ? (player.x - current.targetX) / interval * 1000 : current.velX;
+        const velY = interval > 10 ? (player.y - current.targetY) / interval * 1000 : current.velY;
         Object.assign(current, player, {
           x: current.x,
           y: current.y,
           targetX: player.x,
           targetY: player.y,
+          velX,
+          velY,
+          targetUpdatedAt: now,
           color: current.color,   // preserve per-player palette color
           accent: current.accent
         });
@@ -144,13 +155,17 @@ export class Renderer {
     this.backgroundDirty = true;
   }
 
-  updateCamera() {
+  updateCamera(dt) {
+    // Follow the leading player's interpolated (display) position at 60fps
     const leaders = this.state.leaderboard || [];
     const targetId = leaders[0]?.id;
-    const target = (this.state.players || []).find((player) => player.id === targetId) || strongest(this.state.players);
+    const target = (targetId && this.displayPlayers.get(targetId))
+      || [...this.displayPlayers.values()].sort((a, b) => b.hp - a.hp)[0];
     if (!target) return;
-    this.camera.x += (target.x - this.camera.x) * 0.018;
-    this.camera.y += (target.y - this.camera.y) * 0.018;
+    // Frame-rate-independent alpha: same feel at any fps
+    const alpha = 1 - Math.pow(0.001, dt / 1800);
+    this.camera.x += (target.x - this.camera.x) * alpha;
+    this.camera.y += (target.y - this.camera.y) * alpha;
   }
 
   render(time) {
@@ -160,8 +175,8 @@ export class Renderer {
     const ctx = this.ctx;
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const players = this.state.players || [];
     const displayPlayers = this.updateDisplayPositions(dt);
+    this.updateCamera(dt);
     const detail = getDetailLevel(displayPlayers.length);
 
     if (this.backgroundDirty) this.drawBackground();
@@ -186,9 +201,16 @@ export class Renderer {
 
   updateDisplayPositions(dt) {
     const alpha = Math.min(0.38, 1 - Math.pow(0.001, dt / 220));
+    const now = performance.now();
     for (const player of this.displayPlayers.values()) {
-      player.x += (player.targetX - player.x) * alpha;
-      player.y += (player.targetY - player.y) * alpha;
+      // Extrapolate where the player is heading based on observed velocity,
+      // capped at 120ms to avoid over-shooting on direction changes
+      const timeSince = (now - player.targetUpdatedAt) / 1000;
+      const predict = Math.min(timeSince, 0.12);
+      const predictX = player.targetX + (player.velX || 0) * predict;
+      const predictY = player.targetY + (player.velY || 0) * predict;
+      player.x += (predictX - player.x) * alpha;
+      player.y += (predictY - player.y) * alpha;
     }
     return [...this.displayPlayers.values()];
   }
