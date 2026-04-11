@@ -1,3 +1,23 @@
+const STORAGE_KEY = "tbrSettings";
+
+function loadSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveSetting(key, value) {
+  try {
+    const current = loadSettings();
+    current[key] = value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  } catch {
+    // ignore quota / private-browsing errors
+  }
+}
+
 export class UIManager {
   constructor(sound) {
     this.sound = sound;
@@ -13,30 +33,44 @@ export class UIManager {
     this.countdownEnabled = document.getElementById("countdownEnabled");
     this.countdownSeconds = document.getElementById("countdownSeconds");
 
-    // Countdown state
     this._countdownTimer = null;
     this._countdownRemaining = 0;
     this._currentWinner = null;
 
+    // Restore sync settings first (volumes, countdown), then async toggles
+    this._restoreSync();
     this.renderAudioButtons();
     this.renderGuideUrls();
+    this._restoreTogglesAsync(); // fire-and-forget, re-renders buttons when done
 
     this.sfxButton.addEventListener("click", async () => {
       await this.sound.toggleSfx();
+      saveSetting("sfxEnabled", this.sound.sfxEnabled);
       this.renderAudioButtons();
     });
 
     this.musicButton.addEventListener("click", async () => {
       await this.sound.toggleMusic();
+      saveSetting("musicEnabled", this.sound.musicEnabled);
       this.renderAudioButtons();
     });
 
     this.sfxVolume.addEventListener("input", () => {
       this.sound.setSfxVolume(Number(this.sfxVolume.value) / 100);
+      saveSetting("sfxVolume", this.sfxVolume.value);
     });
 
     this.musicVolume.addEventListener("input", () => {
       this.sound.setMusicVolume(Number(this.musicVolume.value) / 100);
+      saveSetting("musicVolume", this.musicVolume.value);
+    });
+
+    this.countdownEnabled.addEventListener("change", () => {
+      saveSetting("countdownEnabled", this.countdownEnabled.checked);
+    });
+
+    this.countdownSeconds.addEventListener("input", () => {
+      saveSetting("countdownSeconds", this.countdownSeconds.value);
     });
 
     this.settingsButton.addEventListener("click", () => {
@@ -50,9 +84,31 @@ export class UIManager {
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") this.setSettingsOpen(false);
     });
+  }
 
+  // Synchronous restore: volumes + countdown (safe to do before render)
+  _restoreSync() {
+    const s = loadSettings();
+    if (s.sfxVolume !== undefined) this.sfxVolume.value = s.sfxVolume;
+    if (s.musicVolume !== undefined) this.musicVolume.value = s.musicVolume;
     this.sound.setSfxVolume(Number(this.sfxVolume.value) / 100);
     this.sound.setMusicVolume(Number(this.musicVolume.value) / 100);
+    if (s.countdownEnabled !== undefined) this.countdownEnabled.checked = s.countdownEnabled;
+    if (s.countdownSeconds !== undefined) this.countdownSeconds.value = s.countdownSeconds;
+  }
+
+  // Async restore: ON/OFF toggle state (requires audio context init)
+  async _restoreTogglesAsync() {
+    const s = loadSettings();
+    const tasks = [];
+    if (s.sfxEnabled === true && !this.sound.sfxEnabled) tasks.push(this.sound.toggleSfx());
+    if (s.sfxEnabled === false && this.sound.sfxEnabled) tasks.push(this.sound.toggleSfx());
+    if (s.musicEnabled === true && !this.sound.musicEnabled) tasks.push(this.sound.toggleMusic());
+    if (s.musicEnabled === false && this.sound.musicEnabled) tasks.push(this.sound.toggleMusic());
+    if (tasks.length) {
+      await Promise.all(tasks);
+      this.renderAudioButtons(); // re-render after async toggles settle
+    }
   }
 
   renderAudioButtons() {
@@ -102,7 +158,6 @@ export class UIManager {
       return;
     }
 
-    // New winner — start countdown if not already running for same winner
     const isNew = !this._currentWinner || this._currentWinner.username !== winner.username;
     this._currentWinner = winner;
 
@@ -127,7 +182,6 @@ export class UIManager {
 
       if (this._countdownRemaining <= 0) {
         this._stopCountdown();
-        // Trigger manual reset on server
         fetch("/reset").catch(() => {});
       }
     }, 1000);
