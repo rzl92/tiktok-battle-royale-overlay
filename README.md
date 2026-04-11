@@ -1,3 +1,13 @@
+﻿---
+title: Tiktok Battle Royale Overlay
+emoji: 🌀
+colorFrom: blue
+colorTo: yellow
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # TikTok Battle Royale Overlay
 
 A browser-based TikTok Live interactive battle royale auto-battler for OBS Browser Source. Viewers join as sharp battle tops, gifts become HP, HP scales size and damage, and ultimates can wipe out nearby enemies.
