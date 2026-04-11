@@ -247,7 +247,6 @@ export class Renderer {
     if (player.auraLevel > 0) this.drawAura(x, y, r, player, time, detail);
     if (detail === "high") this.drawShadow(x, y, r);
     if (detail !== "medium" || player.auraLevel > 0) this.drawSpeedLines(x, y, r, spin, player);
-    if (player.dashing) this.drawDashTrail(x, y, r, player, time);
 
     ctx.save();
     ctx.translate(x, y);
@@ -474,44 +473,20 @@ export class Renderer {
 
   drawSpeedLines(x, y, r, spin, player) {
     const ctx = this.ctx;
+    const count = player.boosted ? 9 : 5;
+    const alpha = player.boosted ? 0.38 : 0.18;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(spin * 0.38);
     ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = hexToRgba(player.accent, 0.18);
-    ctx.lineWidth = Math.max(2, r * 0.04);
-    for (let i = 0; i < 5; i += 1) {
-      ctx.rotate(TWO_PI / 5);
+    ctx.strokeStyle = hexToRgba(player.accent, alpha);
+    ctx.lineWidth = Math.max(2, r * (player.boosted ? 0.055 : 0.04));
+    for (let i = 0; i < count; i += 1) {
+      ctx.rotate(TWO_PI / count);
       ctx.beginPath();
-      ctx.arc(0, 0, r * (0.96 + i * 0.045), -0.2, 1.18);
+      ctx.arc(0, 0, r * (0.96 + i * 0.04), -0.2, 1.18);
       ctx.stroke();
     }
-    ctx.restore();
-  }
-
-  drawDashTrail(x, y, r, player, time) {
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    const pulse = 0.5 + Math.sin(time * 0.025) * 0.5;
-    // Electric arcs radiating outward during dash
-    const arcCount = 6;
-    for (let i = 0; i < arcCount; i++) {
-      const angle = (i / arcCount) * TWO_PI + time * 0.004;
-      const len = r * (1.2 + pulse * 0.4);
-      ctx.strokeStyle = hexToRgba(player.color, 0.55 * (0.6 + pulse * 0.4));
-      ctx.lineWidth = Math.max(1, r * 0.04);
-      ctx.beginPath();
-      ctx.moveTo(x + Math.cos(angle) * r * 0.9, y + Math.sin(angle) * r * 0.9);
-      ctx.lineTo(x + Math.cos(angle + 0.15) * len, y + Math.sin(angle + 0.15) * len);
-      ctx.stroke();
-    }
-    // Outer flash ring
-    ctx.strokeStyle = hexToRgba(player.accent, 0.5 * pulse);
-    ctx.lineWidth = Math.max(1.5, r * 0.05);
-    ctx.beginPath();
-    ctx.arc(x, y, r * (1.35 + pulse * 0.12), 0, TWO_PI);
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -633,7 +608,6 @@ export class Renderer {
 
       if (effect.kind === "laser") {
         const endPt = this.worldToScreen({ x: effect.tx, y: effect.ty });
-        ctx.globalCompositeOperation = "lighter";
         drawElectricBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, point.scale);
       }
 
@@ -847,63 +821,66 @@ function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
 
 // Electric bolt for laser attacks — forked, flickering, re-randomized every frame
 function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
-  const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.18);
+  const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.22);
 
   ctx.save();
+  ctx.globalCompositeOperation = "lighter";
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // Outer diffuse glow
-  ctx.strokeStyle = `rgba(80, 180, 255, ${t * 0.28})`;
-  ctx.lineWidth = (10 + 6 * t) * scale;
+  // Wide diffuse glow
+  ctx.strokeStyle = `rgba(60, 160, 255, ${t * 0.50})`;
+  ctx.lineWidth = (14 + 8 * t) * scale;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 
   // Mid glow
-  ctx.strokeStyle = `rgba(160, 220, 255, ${t * 0.55})`;
-  ctx.lineWidth = (3.5 + 2 * t) * scale;
+  ctx.strokeStyle = `rgba(140, 210, 255, ${t * 0.75})`;
+  ctx.lineWidth = (4 + 3 * t) * scale;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 
   // Bright white-cyan core
-  ctx.strokeStyle = `rgba(230, 248, 255, ${t * 0.92})`;
-  ctx.lineWidth = (1.2 + t) * scale;
+  ctx.strokeStyle = `rgba(230, 250, 255, ${t * 0.98})`;
+  ctx.lineWidth = (1.5 + t * 0.8) * scale;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 
-  // Fork branches (2 smaller bolts from random midpoints)
+  // Fork branches (2–3 smaller bolts from random midpoints)
   const dx = x2 - x1;
   const dy = y2 - y1;
   const blen = Math.hypot(dx, dy);
-  for (let f = 0; f < 2; f++) {
+  const forks = 2 + (Math.random() < 0.4 ? 1 : 0);
+  for (let f = 0; f < forks; f++) {
     const si = 2 + Math.floor(Math.random() * (pts.length - 4));
     const pt = pts[si];
-    const fAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.4;
-    const fLen = blen * (0.12 + Math.random() * 0.18);
-    ctx.strokeStyle = `rgba(120, 200, 255, ${t * 0.45})`;
-    ctx.lineWidth = (0.8 + t * 0.5) * scale;
+    const fAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.6;
+    const fLen = blen * (0.10 + Math.random() * 0.22);
+    const fPts = buildBoltPts(pt.x, pt.y, pt.x + Math.cos(fAngle) * fLen, pt.y + Math.sin(fAngle) * fLen, 5, 0.25);
+    ctx.strokeStyle = `rgba(100, 200, 255, ${t * 0.60})`;
+    ctx.lineWidth = (1.2 + t * 0.6) * scale;
     ctx.beginPath();
-    ctx.moveTo(pt.x, pt.y);
-    ctx.lineTo(pt.x + Math.cos(fAngle) * fLen, pt.y + Math.sin(fAngle) * fLen);
+    ctx.moveTo(fPts[0].x, fPts[0].y);
+    for (let i = 1; i < fPts.length; i++) ctx.lineTo(fPts[i].x, fPts[i].y);
     ctx.stroke();
   }
 
   // Source spark
-  ctx.fillStyle = `rgba(200, 240, 255, ${t * 0.80})`;
+  ctx.fillStyle = `rgba(180, 230, 255, ${t * 0.90})`;
   ctx.beginPath();
-  ctx.arc(x1, y1, (4 + 2 * t) * scale, 0, TWO_PI);
+  ctx.arc(x1, y1, (5 + 3 * t) * scale, 0, TWO_PI);
   ctx.fill();
 
   // Impact flash at endpoint
-  ctx.fillStyle = `rgba(255, 255, 200, ${t * 0.90})`;
+  ctx.fillStyle = `rgba(255, 255, 220, ${t * 0.95})`;
   ctx.beginPath();
-  ctx.arc(x2, y2, (6 + 5 * t) * scale, 0, TWO_PI);
+  ctx.arc(x2, y2, (8 + 6 * t) * scale, 0, TWO_PI);
   ctx.fill();
 
   ctx.restore();

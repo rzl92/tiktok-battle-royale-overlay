@@ -55,43 +55,34 @@ export class BattleEngine {
         continue;
       }
 
-      // Random zigzag dash: triggers occasionally on any player regardless of HP
-      if (now > player.dashUntil && Math.random() < 0.0007) {
-        player.dashUntil = now + 1200 + Math.random() * 1600; // 1.2–2.8 s
-        player.dashPhase = Math.random() < 0.5 ? 1 : -1;
-      }
-      const isDashing = now < player.dashUntil;
-
       const dx = target.x - player.x;
       const dy = target.y - player.y;
       const distance = Math.hypot(dx, dy) || 1;
       const nx = dx / distance;
       const ny = dy / distance;
 
+      // Speed burst: occasionally sprint in current direction — no direction change
+      if (now > player.speedBurstUntil && Math.random() < 0.0014) {
+        player.speedBurstUntil = now + 500 + Math.random() * 1000; // 0.5–1.5 s
+      }
+      const speedMult = now < player.speedBurstUntil ? 1.55 : 1.0;
+
       // Effective attack range: use whichever is larger — the stored attackRange stat OR
       // the actual physical contact distance between the two tops (radius + target.radius).
-      // Without this, a small top facing a giant can never enter attack mode because the
-      // giant's body pushes it back before it reaches its own small attackRange threshold.
       const physicalContactDist = player.radius + target.radius;
       const effectiveRange = Math.max(player.attackRange, physicalContactDist * 1.1);
 
-      if (isDashing) {
-        // Zigzag dash: sine-wave weave so direction changes are smooth, not abrupt
-        const zigFactor = Math.sin(now * 0.005) * player.dashPhase;
-        const dashSpeed = player.speed * 1.65;
-        const sideSpeed = player.speed * 0.9;
-        this.steer(player, nx * dashSpeed + (-ny * sideSpeed * zigFactor), ny * dashSpeed + (nx * sideSpeed * zigFactor));
-        this.move(player, dt);
-        this.tryAttack(player, target, now);
-      } else if (distance > effectiveRange * 0.92) {
-        const orbit = distance < effectiveRange * 2.2 ? this.config.physics.orbitStrength : 0.08;
-        const desiredX = nx * player.speed + -ny * player.speed * orbit;
-        const desiredY = ny * player.speed + nx * player.speed * orbit;
+      if (distance > effectiveRange * 0.92) {
+        // Vary orbit each tick so approach paths are not perfectly straight
+        const baseOrbit = distance < effectiveRange * 2.2 ? this.config.physics.orbitStrength : 0.08;
+        const orbit = baseOrbit * (0.25 + Math.random() * 1.5);
+        const desiredX = nx * player.speed * speedMult + -ny * player.speed * orbit;
+        const desiredY = ny * player.speed * speedMult + nx * player.speed * orbit;
         this.steer(player, desiredX, desiredY);
         this.move(player, dt);
       } else {
         const circle = Math.random() < 0.5 ? 1 : -1;
-        this.steer(player, -ny * player.speed * 0.55 * circle, nx * player.speed * 0.55 * circle);
+        this.steer(player, -ny * player.speed * speedMult * 0.55 * circle, nx * player.speed * speedMult * 0.55 * circle);
         this.move(player, dt);
         this.tryAttack(player, target, now);
       }
@@ -427,7 +418,12 @@ export class BattleEngine {
     const separatingVelocity = relativeVx * nx + relativeVy * ny;
     if (separatingVelocity > 0) return;
 
-    const impulse = (-(1 + this.config.physics.collisionBounce) * separatingVelocity) / (1 / massA + 1 / massB);
+    // Randomise bounce force: 35% soft glancing (0.35–0.65×), 45% normal (0.8–1.15×), 20% hard (1.3–1.9×)
+    const r = Math.random();
+    const bounceMult = r < 0.35 ? 0.35 + Math.random() * 0.3
+                     : r < 0.80 ? 0.80 + Math.random() * 0.35
+                     : 1.30 + Math.random() * 0.6;
+    const impulse = (-(1 + this.config.physics.collisionBounce) * separatingVelocity * bounceMult) / (1 / massA + 1 / massB);
     const impulseX = impulse * nx;
     const impulseY = impulse * ny;
     a.vx -= impulseX / massA;
@@ -505,7 +501,7 @@ function publicPlayer(player) {
     avatarUrl: player.avatarUrl,
     color: player.classConfig.color,
     accent: player.classConfig.accent,
-    dashing: Date.now() < (player.dashUntil || 0)
+    boosted: Date.now() < (player.speedBurstUntil || 0)
   };
 }
 
