@@ -7,7 +7,6 @@ export class BattleEngine {
     this.roundWinner = null;
     this.resetAt = 0;
     this.lastTick = Date.now();
-    this.broadcastAccumulator = 0;
     this.hitEventBudget = 0;
     this.sparkEventBudget = 0;
   }
@@ -33,11 +32,7 @@ export class BattleEngine {
       this.handleWinner(players[0], now);
     }
 
-    this.broadcastAccumulator += dt;
-    if (this.broadcastAccumulator >= 1 / 12) {
-      this.broadcastAccumulator = 0;
-      this.io.emit("state", this.getSnapshot());
-    }
+    this.io.emit("state", this.getSnapshot());
   }
 
   updatePlayers(players, now, dt) {

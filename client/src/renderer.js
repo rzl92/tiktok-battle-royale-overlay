@@ -200,13 +200,14 @@ export class Renderer {
   }
 
   updateDisplayPositions(dt) {
-    const alpha = Math.min(0.38, 1 - Math.pow(0.001, dt / 220));
+    // Frame-rate-independent alpha — closes ~95% of gap in ~48ms
+    const alpha = Math.min(0.55, 1 - Math.pow(0.001, dt / 150));
     const now = performance.now();
     for (const player of this.displayPlayers.values()) {
       // Extrapolate where the player is heading based on observed velocity,
-      // capped at 120ms to avoid over-shooting on direction changes
+      // capped at 60ms to stay close to true position
       const timeSince = (now - player.targetUpdatedAt) / 1000;
-      const predict = Math.min(timeSince, 0.12);
+      const predict = Math.min(timeSince, 0.06);
       const predictX = player.targetX + (player.velX || 0) * predict;
       const predictY = player.targetY + (player.velY || 0) * predict;
       player.x += (predictX - player.x) * alpha;
