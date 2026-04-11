@@ -144,8 +144,8 @@ export class UIManager {
   _renderWinnerBanner(winner, secondsLeft) {
     this.winnerBanner.hidden = false;
     const countdownHtml = secondsLeft !== null
-      ? `<div class="winner-countdown">Reset dalam <span class="winner-countdown-num">${secondsLeft}</span> detik</div>`
-      : `<div class="winner-countdown">Reset manual via Simulator</div>`;
+      ? `<div class="winner-countdown">Resetting in <span class="winner-countdown-num">${secondsLeft}</span> seconds</div>`
+      : `<div class="winner-countdown">Reset manually via Simulator</div>`;
 
     this.winnerBanner.innerHTML = `
       <div class="winner-title">&#127942; Battle Winner</div>
