@@ -53,6 +53,9 @@ export class Renderer {
   }
 
   addEvent(event) {
+    if (event.type === "laser") {
+      this.pushEffect({ kind: "laser", x: event.x, y: event.y, tx: event.tx, ty: event.ty, color: event.color || "#fff", life: 560, max: 560 });
+    }
     if (event.type === "spark") {
       this.pushEffect({ kind: "spark", x: event.x, y: event.y, angle: event.angle || 0, speed: event.speed || 0.5, life: 240, max: 240 });
     }
@@ -562,6 +565,38 @@ export class Renderer {
         ctx.font = "900 23px system-ui";
         ctx.textAlign = "center";
         ctx.fillText(`-${effect.damage}`, point.x, point.y - 26 * (1 - t));
+      }
+
+      if (effect.kind === "laser") {
+        const endPt = this.worldToScreen({ x: effect.tx, y: effect.ty });
+        ctx.globalCompositeOperation = "lighter";
+        // Outer glow
+        ctx.strokeStyle = hexToRgba(effect.color, 0.32 * t);
+        ctx.lineWidth = (8 + 4 * t) * point.scale;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(endPt.x, endPt.y);
+        ctx.stroke();
+        // Mid glow
+        ctx.strokeStyle = hexToRgba(effect.color, 0.55 * t);
+        ctx.lineWidth = (3 + 2 * t) * point.scale;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(endPt.x, endPt.y);
+        ctx.stroke();
+        // Bright white core
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * t})`;
+        ctx.lineWidth = (1 + t) * point.scale;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(endPt.x, endPt.y);
+        ctx.stroke();
+        // Impact flash at hit point
+        ctx.fillStyle = `rgba(255, 255, 255, ${t * 0.85})`;
+        ctx.beginPath();
+        ctx.arc(endPt.x, endPt.y, (5 + 4 * t) * point.scale, 0, TWO_PI);
+        ctx.fill();
       }
 
       if ((effect.kind === "burst" || effect.kind === "power") && detail !== "low") {

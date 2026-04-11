@@ -29,6 +29,7 @@ export class SoundManager {
     this.bgmGain = null;
     this.lastHitAt = 0;
     this.lastWhooshAt = 0;
+    this.lastLaserAt = 0;
     this.activeOneShots = 0;
   }
 
@@ -100,6 +101,7 @@ export class SoundManager {
       if (event.type === "gift") this.power(event.auraLeveled);
       if (event.type === "ultimate") this.ultimate();
       if (event.type === "winner") this.winner();
+      if (event.type === "laser") this.laser();
     });
   }
 
@@ -133,6 +135,16 @@ export class SoundManager {
     this.playRandom("ultimateBoom", { volume: 0.72, rate: 0.86, delay: 0.34 });
     this.playRandom("ultimateImpact", { volume: 0.42, rate: 0.78, delay: 0.42 });
     this.playRandom("metalHit", { volume: 0.18, rate: 0.68, delay: 0.5 });
+  }
+
+  laser() {
+    // Throttle to avoid audio spam when many tops fire simultaneously
+    const now = performance.now();
+    if (now - this.lastLaserAt < 80) return;
+    this.lastLaserAt = now;
+    // Short electric zap: high-pitch descending tone + brief noise burst
+    this.rampTone(1800 + Math.random() * 400, 420, 0.09, "sawtooth", 0.06);
+    this.filteredNoise(0.04, 6000 + Math.random() * 2000, 0.04, "bandpass");
   }
 
   winner() {

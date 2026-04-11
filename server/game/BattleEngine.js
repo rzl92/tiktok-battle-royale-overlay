@@ -80,6 +80,9 @@ export class BattleEngine {
         this.move(player, dt);
         this.tryAttack(player, target, now);
       }
+
+      // Laser fires regardless of melee range — separate cooldown
+      this.tryFireLaser(player, target, now, players);
     }
 
     this.resolveCollisions(players);
@@ -137,6 +140,48 @@ export class BattleEngine {
     attacker.vy -= ny * this.config.physics.attackerRecoil;
     this.capVelocity(target);
     this.capVelocity(attacker);
+  }
+
+  tryFireLaser(shooter, intendedTarget, now, players) {
+    if (now - shooter.lastLaserAt < this.config.laser.cooldownMs) return;
+    shooter.lastLaserAt = now;
+
+    const dx = intendedTarget.x - shooter.x;
+    const dy = intendedTarget.y - shooter.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const maxRange = this.config.laser.maxRange;
+
+    // Raycast: find closest player hit along this beam (may not be the intended target)
+    let hitPlayer = null;
+    let hitDist = maxRange;
+    for (const player of players) {
+      if (player.id === shooter.id) continue;
+      const px = player.x - shooter.x;
+      const py = player.y - shooter.y;
+      const along = px * nx + py * ny;      // projection along beam
+      if (along < 0 || along > hitDist) continue;
+      const perp = Math.abs(px * ny - py * nx); // perpendicular distance from beam
+      if (perp > player.radius * 1.15) continue;
+      hitPlayer = player;
+      hitDist = along;
+    }
+
+    if (!hitPlayer) return;
+
+    const damage = Math.max(1, Math.floor(shooter.damage * this.config.laser.damageMult));
+    this.damagePlayer({ attacker: shooter, target: hitPlayer, damage, type: "laser" });
+
+    this.pushEvent({
+      type: "laser",
+      shooterId: shooter.id,
+      x: shooter.x,
+      y: shooter.y,
+      tx: shooter.x + nx * hitDist,
+      ty: shooter.y + ny * hitDist,
+      color: shooter.classConfig.color
+    });
   }
 
   damagePlayer({ attacker, target, damage, type }) {

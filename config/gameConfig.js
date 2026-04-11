@@ -53,6 +53,11 @@ export const gameConfig = {
     spinJitter: 0.022,
     collisionCellSize: 280
   },
+  laser: {
+    cooldownMs: 2200,
+    damageMult: 1.2,
+    maxRange: 1200
+  },
   ultimate: {
     cooldownMs: 0,
     rayCount: 16,

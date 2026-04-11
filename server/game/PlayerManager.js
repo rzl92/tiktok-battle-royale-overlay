@@ -41,6 +41,7 @@ export class PlayerManager {
       vy: rand(-90, 90),
       targetId: null,
       lastAttackAt: 0,
+      lastLaserAt: 0,
       lastTargetScanAt: 0,
       lastUltimateAt: -Infinity,
       joinedAt: Date.now(),
