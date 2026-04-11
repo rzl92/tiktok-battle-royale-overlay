@@ -2,9 +2,12 @@ import express from "express";
 
 export function createWebhookRouter({ playerManager, battleEngine }) {
   const router = express.Router();
+  const debugRequests = [];
 
-  router.get("/webhook1", (req, res) => {
-    const result = playerManager.join(req.query.username);
+  router.all(["/webhook1", "/join"], (req, res) => {
+    rememberDebugRequest(debugRequests, req);
+    const input = getInput(req);
+    const result = playerManager.join(input.username);
     if (!result.player) return res.status(400).json({ ok: false, error: result.error });
     battleEngine.pushEvent({
       type: result.created ? "join" : "alreadyJoined",
@@ -16,8 +19,10 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     res.json({ ok: true, created: result.created, player: summarize(result.player) });
   });
 
-  router.get("/webhook2", (req, res) => {
-    const result = playerManager.boost(req.query.username, req.query.coins);
+  router.all(["/webhook2", "/gift"], (req, res) => {
+    rememberDebugRequest(debugRequests, req);
+    const input = getInput(req);
+    const result = playerManager.boost(input.username, input.coins);
     if (!result.player) return res.status(400).json({ ok: false, error: result.error });
     battleEngine.pushEvent({
       type: "gift",
@@ -39,8 +44,10 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     });
   });
 
-  router.get("/webhook3", (req, res) => {
-    const result = battleEngine.triggerUltimate(req.query.username);
+  router.all(["/webhook3", "/ultimate"], (req, res) => {
+    rememberDebugRequest(debugRequests, req);
+    const input = getInput(req);
+    const result = battleEngine.triggerUltimate(input.username);
     if (!result.ok && result.cooldownMs) {
       return res.status(429).json({
         ok: false,
@@ -53,13 +60,45 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     res.json({ ok: true, eliminated: result.eliminated, player: summarize(result.player) });
   });
 
+  router.all("/debug-webhook", (req, res) => {
+    const record = rememberDebugRequest(debugRequests, req);
+    res.json({ ok: true, received: record });
+  });
+
+  router.get("/debug-last", (req, res) => {
+    res.json({ ok: true, requests: debugRequests.slice(-20).reverse() });
+  });
+
   router.post("/avatar", (req, res) => {
-    const avatarUrl = playerManager.setAvatar(req.body.username, req.body.avatarUrl);
+    const input = getInput(req);
+    const avatarUrl = playerManager.setAvatar(input.username, input.avatarUrl);
     if (!avatarUrl) return res.status(400).json({ ok: false, error: "Invalid username or avatarUrl" });
-    res.json({ ok: true, username: req.body.username, avatarUrl });
+    res.json({ ok: true, username: input.username, avatarUrl });
   });
 
   return router;
+}
+
+function getInput(req) {
+  return {
+    ...req.query,
+    ...(typeof req.body === "object" && req.body ? req.body : {})
+  };
+}
+
+function rememberDebugRequest(debugRequests, req) {
+  const record = {
+    at: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    body: typeof req.body === "object" && req.body ? req.body : {},
+    userAgent: req.get("user-agent") || "",
+    ip: req.ip
+  };
+  debugRequests.push(record);
+  debugRequests.splice(0, Math.max(0, debugRequests.length - 50));
+  return record;
 }
 
 function summarize(player) {
