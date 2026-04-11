@@ -73,16 +73,15 @@ export class Renderer {
       });
     }
     if (event.type === "ultimate") {
+      this.pushEffect({ kind: "flash", life: 320, max: 320 });
       this.pushEffect({
-        kind: "ultimate",
+        kind: "lightning",
         x: event.x,
         y: event.y,
-        radius: event.radius,
-        color: "#fff06a",
-        life: 1100,
-        max: 1100
+        rays: event.rays || [],
+        life: 900,
+        max: 900
       });
-      this.pushEffect({ kind: "flash", life: 240, max: 240 });
     }
   }
 
@@ -574,17 +573,26 @@ export class Renderer {
         ctx.stroke();
       }
 
-      if (effect.kind === "ultimate") {
-        const radius = effect.radius * point.scale * (1 - t);
-        ctx.strokeStyle = hexToRgba(effect.color, 0.9 * t);
-        ctx.lineWidth = 4 + 12 * t;
+      if (effect.kind === "lightning") {
+        ctx.globalCompositeOperation = "lighter";
+        for (const ray of effect.rays) {
+          const ex = effect.x + Math.cos(ray.angle) * ray.length;
+          const ey = effect.y + Math.sin(ray.angle) * ray.length;
+          const endPt = this.worldToScreen({ x: ex, y: ey });
+          drawLightningBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, ray.hit, point.scale);
+        }
+        // Expanding discharge ring at caster
+        const ringR = (18 + 90 * (1 - t)) * point.scale;
+        ctx.strokeStyle = `rgba(180, 230, 255, ${t * 0.7})`;
+        ctx.lineWidth = (2 + 4 * t) * point.scale;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, radius, 0, TWO_PI);
+        ctx.arc(point.x, point.y, ringR, 0, TWO_PI);
         ctx.stroke();
-
-        ctx.fillStyle = hexToRgba(effect.color, 0.08 * t);
+        // Bright core flash at caster origin
+        const coreR = 12 * t * point.scale;
+        ctx.fillStyle = `rgba(255, 255, 220, ${t * 0.9})`;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, radius, 0, TWO_PI);
+        ctx.arc(point.x, point.y, coreR, 0, TWO_PI);
         ctx.fill();
       }
 
@@ -695,6 +703,61 @@ function roundRect(ctx, x, y, width, height, radius) {
   ctx.arcTo(x, y + height, x, y, radius);
   ctx.arcTo(x, y, x + width, y, radius);
   ctx.closePath();
+}
+
+// Draws a zigzag lightning bolt from (x1,y1) to (x2,y2).
+// Re-randomizes every frame so it flickers naturally.
+function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
+  const segments = 7;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  const jitter = len * 0.14;
+  // perpendicular direction for zigzag offset
+  const px = -dy / len;
+  const py = dx / len;
+
+  const pts = [{ x: x1, y: y1 }];
+  for (let i = 1; i < segments; i++) {
+    const frac = i / segments;
+    const offset = (Math.random() - 0.5) * jitter * (1 - Math.abs(frac - 0.5) * 1.4);
+    pts.push({
+      x: x1 + dx * frac + px * offset,
+      y: y1 + dy * frac + py * offset
+    });
+  }
+  pts.push({ x: x2, y: y2 });
+
+  // Outer glow
+  ctx.save();
+  ctx.strokeStyle = isHit
+    ? `rgba(255, 200, 60, ${t * 0.35})`
+    : `rgba(100, 180, 255, ${t * 0.25})`;
+  ctx.lineWidth = (5 + 3 * t) * scale;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // Bright core
+  ctx.strokeStyle = isHit
+    ? `rgba(255, 245, 140, ${t * 0.95})`
+    : `rgba(200, 235, 255, ${t * 0.85})`;
+  ctx.lineWidth = (1.5 + t) * scale;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // Impact flash at endpoint if it hit someone
+  if (isHit) {
+    ctx.fillStyle = `rgba(255, 240, 80, ${t * 0.8})`;
+    ctx.beginPath();
+    ctx.arc(x2, y2, (6 + 4 * t) * scale, 0, TWO_PI);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 // Returns health bar fill color based on HP ratio.

@@ -55,11 +55,9 @@ export const gameConfig = {
   },
   ultimate: {
     cooldownMs: 45000,
-    radius: 360,
-    randomVictimsIfNoNearby: 7,
-    maxEliminations: 18,
-    damage: 999999,
-    shockwaveMs: 1250
+    rayCount: 16,
+    maxRange: 950,
+    damageMult: 10
   },
   round: {
     resetSeconds: Number(process.env.ROUND_RESET_SECONDS || 8)

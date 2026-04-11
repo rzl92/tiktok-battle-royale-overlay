@@ -180,20 +180,43 @@ export class BattleEngine {
     }
     caster.lastUltimateAt = now;
 
-    const enemies = [];
-    const nearby = [];
-    const radiusSq = this.config.ultimate.radius * this.config.ultimate.radius;
+    const { rayCount, maxRange, damageMult } = this.config.ultimate;
+    const damage = Math.max(1, Math.round(caster.damage * damageMult));
+    const enemies = this.playerManager.getAlivePlayers().filter((p) => p.id !== caster.id);
+    // slight sector overlap so no blind spots between rays
+    const halfSector = (Math.PI / rayCount) * 1.25;
+    const alreadyHit = new Set();
+    const rays = [];
 
-    for (const player of this.playerManager.getAlivePlayers()) {
-      if (player.id === caster.id) continue;
-      enemies.push(player);
-      if (distanceSq(caster, player) <= radiusSq) nearby.push(player);
+    for (let i = 0; i < rayCount; i++) {
+      const angle = (i / rayCount) * Math.PI * 2;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      // Closest enemy within this ray's sector
+      let closestDist = maxRange;
+      let hitPlayer = null;
+      for (const player of enemies) {
+        if (alreadyHit.has(player.id)) continue;
+        const dx = player.x - caster.x;
+        const dy = player.y - caster.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1 || dist > maxRange) continue;
+        const dot = (dx * nx + dy * ny) / dist;
+        if (dot < Math.cos(halfSector)) continue;
+        if (dist < closestDist) {
+          closestDist = dist;
+          hitPlayer = player;
+        }
+      }
+
+      rays.push({ angle, length: hitPlayer ? closestDist : maxRange, hit: !!hitPlayer });
+
+      if (hitPlayer) {
+        alreadyHit.add(hitPlayer.id);
+        this.damagePlayer({ attacker: caster, target: hitPlayer, damage, type: "ultimate" });
+      }
     }
-
-    const victims = (nearby.length ? nearby : shuffle(enemies).slice(0, this.config.ultimate.randomVictimsIfNoNearby)).slice(
-      0,
-      this.config.ultimate.maxEliminations
-    );
 
     this.pushEvent({
       type: "ultimate",
@@ -201,15 +224,10 @@ export class BattleEngine {
       casterName: caster.username,
       x: caster.x,
       y: caster.y,
-      radius: this.config.ultimate.radius,
-      victimIds: victims.map((victim) => victim.id)
+      rays
     });
 
-    for (const victim of victims) {
-      this.eliminate(victim, caster, "ultimate");
-    }
-
-    return { ok: true, player: caster, eliminated: victims.length };
+    return { ok: true, player: caster, eliminated: alreadyHit.size };
   }
 
   eliminate(target, killer, cause) {
@@ -437,13 +455,4 @@ function distanceSq(a, b) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
-}
-
-function shuffle(items) {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 }
