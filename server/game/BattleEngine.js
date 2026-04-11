@@ -61,8 +61,15 @@ export class BattleEngine {
       const nx = dx / distance;
       const ny = dy / distance;
 
-      if (distance > player.attackRange * 0.88) {
-        const orbit = distance < player.attackRange * 2.4 ? this.config.physics.orbitStrength : 0.08;
+      // Effective attack range: use whichever is larger — the stored attackRange stat OR
+      // the actual physical contact distance between the two tops (radius + target.radius).
+      // Without this, a small top facing a giant can never enter attack mode because the
+      // giant's body pushes it back before it reaches its own small attackRange threshold.
+      const physicalContactDist = player.radius + target.radius;
+      const effectiveRange = Math.max(player.attackRange, physicalContactDist * 1.1);
+
+      if (distance > effectiveRange * 0.92) {
+        const orbit = distance < effectiveRange * 2.2 ? this.config.physics.orbitStrength : 0.08;
         const desiredX = nx * player.speed + -ny * player.speed * orbit;
         const desiredY = ny * player.speed + nx * player.speed * orbit;
         this.steer(player, desiredX, desiredY);
