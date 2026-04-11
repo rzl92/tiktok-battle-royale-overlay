@@ -9,6 +9,9 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     const input = getInput(req);
     const result = playerManager.join(input.username);
     if (!result.player) return res.status(400).json({ ok: false, error: result.error });
+    const avatarFromPayload = extractAvatarUrl(input);
+    if (avatarFromPayload) playerManager.setAvatar(input.username, avatarFromPayload);
+    else playerManager.resolveAvatarAsync(input.username);
     battleEngine.pushEvent({
       type: result.created ? "join" : "alreadyJoined",
       playerId: result.player.id,
@@ -24,6 +27,9 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     const input = getInput(req);
     const result = playerManager.boost(input.username, input.coins);
     if (!result.player) return res.status(400).json({ ok: false, error: result.error });
+    const avatarFromPayload = extractAvatarUrl(input);
+    if (avatarFromPayload) playerManager.setAvatar(input.username, avatarFromPayload);
+    else playerManager.resolveAvatarAsync(input.username);
     battleEngine.pushEvent({
       type: "gift",
       playerId: result.player.id,
@@ -84,6 +90,26 @@ function getInput(req) {
     ...(typeof req.body === "object" && req.body ? req.body : {}),
     ...req.query
   };
+}
+
+// Extract avatar URL from various TikFinity/StreamerBot payload field names
+function extractAvatarUrl(input) {
+  const candidates = [
+    input.profilePictureUrl,
+    input.profilePicture,
+    input.avatarUrl,
+    input.avatar,
+    input.avatarThumb,
+    input.picture_url,
+    input.userAvatar,
+    input.userImage,
+    input.thumbnail_url
+  ];
+  for (const url of candidates) {
+    const s = String(url || "").trim();
+    if (s.startsWith("https://") || s.startsWith("http://")) return s;
+  }
+  return null;
 }
 
 function rememberDebugRequest(debugRequests, req) {

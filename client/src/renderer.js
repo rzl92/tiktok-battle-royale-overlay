@@ -232,7 +232,7 @@ export class Renderer {
     this.drawCenterCore(r, player, spin);
     ctx.restore();
 
-    if (r > 18 && (detail === "high" || showName || player.auraLevel > 0)) this.drawAvatar(player, x, y, r * 0.28);
+    if (r > 14 && (detail === "high" || showName || player.auraLevel > 0)) this.drawAvatar(player, x, y, r * 0.52);
     if (showName) this.drawNameplate(player, x, y, r);
   }
 
@@ -597,9 +597,12 @@ export class Renderer {
   getImage(url) {
     if (!url) return null;
     if (this.avatarCache.has(url)) return this.avatarCache.get(url);
+    const proxied = (url.startsWith("http://") || url.startsWith("https://"))
+      ? `/avatar-proxy?url=${encodeURIComponent(url)}`
+      : url;
     const image = new Image();
     image.crossOrigin = "anonymous";
-    image.src = url;
+    image.src = proxied;
     this.avatarCache.set(url, image);
     return image;
   }

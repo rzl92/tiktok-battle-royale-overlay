@@ -44,6 +44,32 @@ app.use("/", createWebhookRouter({ playerManager, battleEngine }));
 app.use("/", createSimulatorRouter({ playerManager, battleEngine }));
 
 app.get("/", (req, res) => res.redirect("/client/overlay.html"));
+
+// Proxy TikTok CDN avatar images to avoid browser CORS restrictions
+app.get("/avatar-proxy", async (req, res) => {
+  const url = String(req.query.url || "").trim();
+  if (!url.startsWith("https://") && !url.startsWith("http://")) {
+    return res.status(400).end("Bad url");
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    const upstream = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; TikTokBattleRoyaleBot/1.0)" }
+    });
+    clearTimeout(timer);
+    const ct = upstream.headers.get("content-type") || "image/jpeg";
+    if (!ct.startsWith("image/")) return res.status(400).end("Not an image");
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    const buf = await upstream.arrayBuffer();
+    res.end(Buffer.from(buf));
+  } catch {
+    res.status(502).end("Proxy error");
+  }
+});
+
 app.get("/health", (req, res) => {
   res.json({
     ok: true,

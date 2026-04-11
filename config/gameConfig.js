@@ -7,8 +7,8 @@ export const gameConfig = {
   player: {
     baseHP: 15,
     giftHPPerCoin: 25,
-    baseRadius: 15,
-    maxRenderedRadius: 185,
+    baseRadius: 24,
+    maxRenderedRadius: 280,
     respawnInvulnerabilityMs: 1200
   },
   formulas: {
@@ -40,16 +40,16 @@ export const gameConfig = {
     idleWanderTurnChance: 0.03
   },
   physics: {
-    friction: 0.985,
+    friction: 0.988,
     steering: 0.075,
     orbitStrength: 0.34,
-    collisionBounce: 0.72,
-    collisionPush: 0.58,
-    hitKnockback: 150,
-    attackerRecoil: 48,
-    maxVelocity: 360,
-    spinJitter: 0.018,
-    collisionCellSize: 230
+    collisionBounce: 0.92,
+    collisionPush: 0.72,
+    hitKnockback: 320,
+    attackerRecoil: 90,
+    maxVelocity: 580,
+    spinJitter: 0.022,
+    collisionCellSize: 280
   },
   ultimate: {
     cooldownMs: 45000,

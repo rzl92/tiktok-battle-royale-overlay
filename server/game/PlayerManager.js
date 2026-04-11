@@ -79,6 +79,19 @@ export class PlayerManager {
     return url;
   }
 
+  // Fire-and-forget: fetch TikTok avatar in background and update player if found
+  resolveAvatarAsync(username) {
+    const cleanName = sanitizeUsername(username);
+    if (!cleanName) return;
+    this.avatarResolver.fetchAndStore(cleanName).then(() => {
+      const player = this.players.get(cleanName.toLowerCase());
+      if (player) {
+        const url = this.avatarResolver.resolveLatest(cleanName);
+        if (url) player.avatarUrl = url;
+      }
+    }).catch(() => {});
+  }
+
   getByUsername(username) {
     return this.players.get(String(username || "").trim().toLowerCase()) || null;
   }
