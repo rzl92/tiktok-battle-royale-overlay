@@ -54,7 +54,7 @@ export const gameConfig = {
     collisionCellSize: 280
   },
   ultimate: {
-    cooldownMs: 45000,
+    cooldownMs: 0,
     rayCount: 16,
     maxRange: 950,
     damageMult: 10
