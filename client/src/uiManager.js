@@ -98,13 +98,16 @@ export class UIManager {
   }
 
   // Async restore: ON/OFF toggle state (requires audio context init)
+  // Default is ON for both sfx and music when no saved preference exists.
   async _restoreTogglesAsync() {
     const s = loadSettings();
+    const sfxOn = s.sfxEnabled !== undefined ? s.sfxEnabled : true;
+    const musicOn = s.musicEnabled !== undefined ? s.musicEnabled : true;
     const tasks = [];
-    if (s.sfxEnabled === true && !this.sound.sfxEnabled) tasks.push(this.sound.toggleSfx());
-    if (s.sfxEnabled === false && this.sound.sfxEnabled) tasks.push(this.sound.toggleSfx());
-    if (s.musicEnabled === true && !this.sound.musicEnabled) tasks.push(this.sound.toggleMusic());
-    if (s.musicEnabled === false && this.sound.musicEnabled) tasks.push(this.sound.toggleMusic());
+    if (sfxOn && !this.sound.sfxEnabled) tasks.push(this.sound.toggleSfx());
+    if (!sfxOn && this.sound.sfxEnabled) tasks.push(this.sound.toggleSfx());
+    if (musicOn && !this.sound.musicEnabled) tasks.push(this.sound.toggleMusic());
+    if (!musicOn && this.sound.musicEnabled) tasks.push(this.sound.toggleMusic());
     if (tasks.length) {
       await Promise.all(tasks);
       this.renderAudioButtons(); // re-render after async toggles settle

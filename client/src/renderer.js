@@ -186,21 +186,6 @@ export class Renderer {
     }
     ctx.restore();
 
-    ctx.save();
-    ctx.translate(width / 2, height / 2);
-    const arenaRadius = Math.min(width, height) * 0.42;
-    const arenaGlow = ctx.createRadialGradient(0, 0, arenaRadius * 0.2, 0, 0, arenaRadius);
-    arenaGlow.addColorStop(0, "rgba(255, 255, 255, 0.06)");
-    arenaGlow.addColorStop(0.72, "rgba(45, 224, 194, 0.08)");
-    arenaGlow.addColorStop(1, "rgba(255, 61, 110, 0.05)");
-    ctx.fillStyle = arenaGlow;
-    ctx.beginPath();
-    ctx.arc(0, 0, arenaRadius, 0, TWO_PI);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    ctx.restore();
 
     this.backgroundDirty = false;
   }
