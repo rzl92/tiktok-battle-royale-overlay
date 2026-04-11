@@ -10,6 +10,14 @@ export class UIManager {
     this.settingsButton = document.getElementById("settingsButton");
     this.settingsPanel = document.getElementById("settingsPanel");
     this.settingsClose = document.getElementById("settingsClose");
+    this.countdownEnabled = document.getElementById("countdownEnabled");
+    this.countdownSeconds = document.getElementById("countdownSeconds");
+
+    // Countdown state
+    this._countdownTimer = null;
+    this._countdownRemaining = 0;
+    this._currentWinner = null;
+
     this.renderAudioButtons();
     this.renderGuideUrls();
 
@@ -88,14 +96,62 @@ export class UIManager {
 
   updateWinner(winner) {
     if (!winner) {
+      this._stopCountdown();
       this.winnerBanner.hidden = true;
+      this._currentWinner = null;
       return;
     }
+
+    // New winner — start countdown if not already running for same winner
+    const isNew = !this._currentWinner || this._currentWinner.username !== winner.username;
+    this._currentWinner = winner;
+
+    if (isNew) {
+      this._stopCountdown();
+      if (this.countdownEnabled.checked) {
+        const secs = Math.max(3, Math.min(120, Number(this.countdownSeconds.value) || 15));
+        this._startCountdown(winner, secs);
+      } else {
+        this._renderWinnerBanner(winner, null);
+      }
+    }
+  }
+
+  _startCountdown(winner, totalSeconds) {
+    this._countdownRemaining = totalSeconds;
+    this._renderWinnerBanner(winner, this._countdownRemaining);
+
+    this._countdownTimer = setInterval(() => {
+      this._countdownRemaining -= 1;
+      this._renderWinnerBanner(winner, this._countdownRemaining);
+
+      if (this._countdownRemaining <= 0) {
+        this._stopCountdown();
+        // Trigger manual reset on server
+        fetch("/reset").catch(() => {});
+      }
+    }, 1000);
+  }
+
+  _stopCountdown() {
+    if (this._countdownTimer !== null) {
+      clearInterval(this._countdownTimer);
+      this._countdownTimer = null;
+    }
+    this._countdownRemaining = 0;
+  }
+
+  _renderWinnerBanner(winner, secondsLeft) {
     this.winnerBanner.hidden = false;
+    const countdownHtml = secondsLeft !== null
+      ? `<div class="winner-countdown">Reset dalam <span class="winner-countdown-num">${secondsLeft}</span> detik</div>`
+      : `<div class="winner-countdown">Reset manual via Simulator</div>`;
+
     this.winnerBanner.innerHTML = `
       <div class="winner-title">&#127942; Battle Winner</div>
       <div class="winner-name">${escapeHtml(winner.username)}</div>
       <div class="winner-meta">${winner.kills} kills &middot; ${winner.hp} HP remaining</div>
+      ${countdownHtml}
     `;
   }
 
