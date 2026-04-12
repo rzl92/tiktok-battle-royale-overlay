@@ -52,6 +52,7 @@ export const gameConfig = {
     attackCooldownMs: 650,
     maxPlayers: 200,
     idleWanderTurnChance: 0.055,
+    attackContactScale: 0.94,
     giantSlayerBonusHpStep: 500,
     giantSlayerMaxBonus: 12
   },
@@ -65,12 +66,16 @@ export const gameConfig = {
     attackerRecoil: 55,
     maxVelocity: 760,
     spinJitter: 0.04,
-    collisionCellSize: 700
+    collisionCellSize: 700,
+    collisionContactScale: 0.88,
+    boostImpulseBase: 220,
+    boostImpulseMax: 680
   },
   laser: {
     cooldownMs: 2200,
     damageMult: 1,
-    maxRange: 1200
+    maxRange: 1200,
+    minHp: 100
   },
   ultimate: {
     cooldownMs: 0,

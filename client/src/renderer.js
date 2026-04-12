@@ -114,14 +114,7 @@ export class Renderer {
         });
       }
       if (event.bonus > 0) {
-        this.pushEffect({
-          kind: "healText",
-          x: event.x,
-          y: event.y,
-          amount: event.bonus,
-          life: 560,
-          max: 560
-        });
+        this.pushHealText(event);
       }
     }
     if (event.type === "ultimate") {
@@ -142,6 +135,27 @@ export class Renderer {
     if (this.effects.length > MAX_EFFECTS) {
       this.effects.splice(0, this.effects.length - MAX_EFFECTS);
     }
+  }
+
+  pushHealText(event) {
+    const key = event.playerId || event.username || "unknown";
+    const existing = this.effects.find((effect) => effect.kind === "healText" && effect.key === key && effect.life > 160);
+    if (existing) {
+      existing.amount += event.bonus;
+      existing.x = event.x;
+      existing.y = event.y;
+      existing.life = existing.max;
+      return;
+    }
+    this.pushEffect({
+      kind: "healText",
+      key,
+      x: event.x,
+      y: event.y,
+      amount: event.bonus,
+      life: 560,
+      max: 560
+    });
   }
 
   resize() {
@@ -350,9 +364,9 @@ export class Renderer {
 
   drawSingleGear(x, y, r, player, spin, visual) {
     const ctx = this.ctx;
-    const teeth = visual.elite ? 12 : 8;
-    const inner = r * (visual.elite ? 0.48 : 0.56);
-    const outer = r * (visual.elite ? 0.96 : 0.86);
+    const teeth = visual.elite ? 12 : player.hp <= 25 ? 4 : 8;
+    const inner = r * (visual.elite ? 0.48 : player.hp <= 25 ? 0.5 : 0.56);
+    const outer = r * (visual.elite ? 0.96 : player.hp <= 25 ? 0.78 : 0.86);
 
     ctx.save();
     ctx.translate(x, y);

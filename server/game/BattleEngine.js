@@ -80,7 +80,7 @@ export class BattleEngine {
       // Without this, a small top facing a giant can never enter attack mode because the
       // giant's body pushes it back before it reaches its own small attackRange threshold.
       const physicalContactDist = player.radius + target.radius;
-      const effectiveRange = Math.max(player.attackRange, physicalContactDist * 1.1);
+      const effectiveRange = physicalContactDist * (this.config.combat.attackContactScale || 0.94);
 
       if (distance > effectiveRange * 0.92) {
         const orbit = distance < effectiveRange * 2.2 ? this.config.physics.orbitStrength : 0.08;
@@ -159,6 +159,7 @@ export class BattleEngine {
   }
 
   tryFireLaser(shooter, intendedTarget, now, players) {
+    if (shooter.hp < (this.config.laser.minHp || 0)) return;
     if (now - shooter.lastLaserAt < this.config.laser.cooldownMs) return;
     shooter.lastLaserAt = now;
 
@@ -514,8 +515,8 @@ export class BattleEngine {
   }
 
   resolvePair(a, b) {
-    // 0.97 so physics fires just as tops visually touch (near-perfect surface contact)
-    const minDist = (a.radius + b.radius) * 0.97;
+    // Keep collision contact slightly inside the visible gear so nearby tops can look attached.
+    const minDist = (a.radius + b.radius) * (this.config.physics.collisionContactScale || 0.88);
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const distSq = dx * dx + dy * dy;

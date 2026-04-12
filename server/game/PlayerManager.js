@@ -75,6 +75,7 @@ export class PlayerManager {
     joined.player.hp += bonus;
     joined.player.maxSeenHP = Math.max(joined.player.maxSeenHP, joined.player.hp);
     this.recalculateDerivedStats(joined.player);
+    if (bonus > 0) this.applyBoostImpulse(joined.player, bonus);
     return {
       player: joined.player,
       created: joined.created,
@@ -171,6 +172,22 @@ export class PlayerManager {
     player.attackRange = this.config.formulas.attackRange(player.radius, player.classConfig);
     player.speed = this.config.formulas.moveSpeed(player.classConfig, player.hp);
     player.auraLevel = getAuraLevel(player.hp, this.config);
+  }
+
+  applyBoostImpulse(player, bonus) {
+    const angle = Math.random() * Math.PI * 2;
+    const base = this.config.physics.boostImpulseBase || 220;
+    const maxBoost = this.config.physics.boostImpulseMax || 680;
+    const force = Math.min(maxBoost, base + Math.sqrt(Math.max(0, bonus)) * 18);
+    player.vx += Math.cos(angle) * force;
+    player.vy += Math.sin(angle) * force;
+    const speed = Math.hypot(player.vx, player.vy);
+    const maxVelocity = this.config.physics.maxVelocity || 760;
+    if (speed > maxVelocity) {
+      player.vx = (player.vx / speed) * maxVelocity;
+      player.vy = (player.vy / speed) * maxVelocity;
+    }
+    player.lastTargetScanAt = 0;
   }
 
   pickClass(username) {
