@@ -123,16 +123,15 @@ export class SoundManager {
   }
 
   power(big) {
-    this.playRandom("spinWhoosh", { volume: big ? 0.26 : 0.16, rate: big ? 0.82 : 1.05 });
-    this.hpAddedTone(big);
+    this.healPing(big);
     if (big) this.playRandom("ultimateImpact", { volume: 0.12, rate: 1.25, delay: 0.16 });
   }
 
-  hpAddedTone(big) {
-    const volume = big ? 0.09 : 0.065;
-    this.tone(520, 0.08, "triangle", volume);
-    this.tone(780, 0.09, "triangle", volume * 0.9, 0.07);
-    this.tone(1040, 0.12, "sine", volume * 0.75, 0.14);
+  healPing(big) {
+    const volume = big ? 0.16 : 0.12;
+    this.tone(880, 0.07, "triangle", volume);
+    this.tone(1320, 0.08, "sine", volume * 0.9, 0.055);
+    this.filteredNoise(0.035, 2400, volume * 0.28, "bandpass");
   }
 
   ultimate() {

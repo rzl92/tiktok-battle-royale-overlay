@@ -102,12 +102,12 @@ export class Renderer {
     }
     if (event.type === "gift") {
       this.pushEffect({
-        kind: "power",
+        kind: "heal",
         x: event.x,
         y: event.y,
-        color: event.auraLeveled ? "#ffd84d" : "#4df7ff",
-        life: 760,
-        max: 760
+        color: "#39f87b",
+        life: 680,
+        max: 680
       });
     }
     if (event.type === "ultimate") {
@@ -829,6 +829,38 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(point.x, point.y, 18 + 82 * (1 - t), 0, TWO_PI);
         ctx.stroke();
+      }
+
+      if (effect.kind === "heal") {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const radius = (18 + 72 * (1 - t)) * point.scale;
+        ctx.strokeStyle = hexToRgba(effect.color, 0.82 * t);
+        ctx.lineWidth = (5 + 7 * t) * point.scale;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius, 0, TWO_PI);
+        ctx.stroke();
+
+        if (detail !== "ultra") {
+          const plusCount = detail === "low" ? 3 : 6;
+          ctx.strokeStyle = `rgba(170, 255, 198, ${0.95 * t})`;
+          ctx.lineWidth = (2 + 2 * t) * point.scale;
+          ctx.lineCap = "round";
+          for (let i = 0; i < plusCount; i += 1) {
+            const angle = (i / plusCount) * TWO_PI + (1 - t) * 1.5;
+            const dist = (22 + 52 * (1 - t)) * point.scale;
+            const size = (5 + 5 * t) * point.scale;
+            const px = point.x + Math.cos(angle) * dist;
+            const py = point.y + Math.sin(angle) * dist;
+            ctx.beginPath();
+            ctx.moveTo(px - size, py);
+            ctx.lineTo(px + size, py);
+            ctx.moveTo(px, py - size);
+            ctx.lineTo(px, py + size);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
       }
 
       if (effect.kind === "lightning" && detail !== "ultra") {
