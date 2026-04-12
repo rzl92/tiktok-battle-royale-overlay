@@ -240,16 +240,19 @@ export class Renderer {
 
     if (detail === "ultra") {
       this.drawFastTop(x, y, r, player, spin, showName);
+      this.drawHpRing(player, x, y, r);
       return;
     }
 
     if (detail === "low") {
       this.drawFastTop(x, y, r, player, spin, showName);
+      this.drawHpRing(player, x, y, r);
       return;
     }
 
     if (profile.blades <= 0) {
       this.drawBareTop(x, y, r, player, spin, showName);
+      this.drawHpRing(player, x, y, r);
       if (r > 14 && (detail === "high" || showName)) this.drawAvatar(player, x, y, r * 0.52);
       return;
     }
@@ -269,6 +272,7 @@ export class Renderer {
     this.drawCenterCore(r, player, spin);
     ctx.restore();
 
+    this.drawHpRing(player, x, y, r);
     if (r > 14 && (detail === "high" || showName || player.auraLevel > 0)) this.drawAvatar(player, x, y, r * 0.52);
     if (showName) this.drawNameplate(player, x, y, r);
   }
@@ -667,11 +671,39 @@ export class Renderer {
     ctx.stroke();
   }
 
+  drawHpRing(player, x, y, r) {
+    const ctx = this.ctx;
+    const ratio = Math.max(0, Math.min(1, player.hp / Math.max(player.maxSeenHP, player.hp, 1)));
+    const ringR = r * 1.08;
+    const line = Math.max(3, Math.min(12, r * 0.065));
+    const start = -Math.PI / 2;
+    const end = start + TWO_PI * ratio;
+
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineWidth = line;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.56)";
+    ctx.beginPath();
+    ctx.arc(x, y, ringR, 0, TWO_PI);
+    ctx.stroke();
+
+    ctx.strokeStyle = hpBarColor(ratio, player.hp, this.getAuraColor(player));
+    ctx.beginPath();
+    ctx.arc(x, y, ringR, start, end);
+    ctx.stroke();
+
+    ctx.lineWidth = Math.max(1, line * 0.28);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
+    ctx.beginPath();
+    ctx.arc(x, y, ringR, 0, TWO_PI);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawNameplate(player, x, y, r) {
     const ctx = this.ctx;
     const width = Math.max(86, Math.min(172, r * 2.55));
     const top = y - r - 43;
-    const hpPercent = Math.max(0.04, Math.min(1, player.hp / Math.max(player.maxSeenHP, player.hp, 1)));
 
     ctx.save();
     ctx.fillStyle = "rgba(3, 8, 13, 0.72)";
@@ -686,13 +718,6 @@ export class Renderer {
     ctx.fillStyle = "#b9c9d6";
     ctx.font = "800 10px system-ui";
     ctx.fillText(`${player.hp} HP / ${player.kills} P`, x, top + 23);
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-    roundRect(ctx, x - width / 2, top + 36, width, 8, 4);
-    ctx.fill();
-    ctx.fillStyle = hpBarColor(hpPercent, player.hp, this.getAuraColor(player));
-    roundRect(ctx, x - width / 2, top + 36, width * hpPercent, 8, 4);
-    ctx.fill();
     ctx.restore();
   }
 
