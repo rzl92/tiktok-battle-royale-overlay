@@ -9,6 +9,7 @@ const SOUND_PATHS = {
   ultimateRise: ["/assets/sounds/ultimate-cinematic-rise.mp3"],
   ultimateBoom: ["/assets/sounds/ultimate-explosion-boom.mp3"],
   ultimateMagic: ["/assets/sounds/ultimate-magic-burst.mp3"],
+  healPickup: ["/assets/sounds/health-pickup-6860.mp3"],
   bgm: ["/assets/sounds/battle-bgm.mp3"]
 };
 
@@ -123,7 +124,7 @@ export class SoundManager {
   }
 
   power(big) {
-    this.healPing(big);
+    this.playRandom("healPickup", { volume: big ? 0.22 : 0.18, rate: big ? 0.92 : 1.04 });
     if (big) this.playRandom("ultimateImpact", { volume: 0.12, rate: 1.25, delay: 0.16 });
   }
 
@@ -269,6 +270,7 @@ export class SoundManager {
     if (group === "heavyImpact" || group === "ultimateImpact") this.noise(0.22, 260, 0.22);
     if (group.startsWith("ultimate")) this.noise(0.36, 340, 0.34);
     if (group === "spinWhoosh") this.rampTone(170, 780, 0.34, "sawtooth", 0.14);
+    if (group === "healPickup") this.healPing(false);
   }
 
   syntheticSpinLoop() {

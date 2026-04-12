@@ -30,5 +30,11 @@ Downloaded local files:
 - `ultimate-explosion-boom.mp3`
 - `ultimate-magic-burst.mp3`
 - `battle-bgm.mp3`
+- `health-pickup-6860.mp3`
+
+Additional Pixabay sound effect:
+
+- `health-pickup-6860.mp3` - "Health Pickup" by KeshaFilm (Freesound), Pixabay Content License
+  - Source: https://pixabay.com/sound-effects/film-special-effects-health-pickup-6860/
 
 Mixkit lists both Sound Effects and Stock Music as Free License categories on its license page. Keep this file for future asset tracking.
