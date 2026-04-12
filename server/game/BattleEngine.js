@@ -66,6 +66,17 @@ export class BattleEngine {
       const target = byId.get(player.targetId);
       if (!target) {
         this.wander(player, dt);
+        // Pull wandering tops toward center so they rejoin the fight.
+        const cx = this.config.arena.width / 2;
+        const cy = this.config.arena.height / 2;
+        const cdx = cx - player.x;
+        const cdy = cy - player.y;
+        const cdist = Math.hypot(cdx, cdy) || 1;
+        if (cdist > 80) {
+          const pull = (this.config.physics.centerPullStrength || 0.055) * player.speed * dt;
+          player.vx += (cdx / cdist) * pull;
+          player.vy += (cdy / cdist) * pull;
+        }
         continue;
       }
 
@@ -75,24 +86,40 @@ export class BattleEngine {
       const nx = dx / distance;
       const ny = dy / distance;
 
-      // Effective attack range: use whichever is larger: the stored attackRange stat OR
-      // the actual physical contact distance between the two tops (radius + target.radius).
-      // Without this, a small top facing a giant can never enter attack mode because the
-      // giant's body pushes it back before it reaches its own small attackRange threshold.
+      // Approach until physically touching (gear-to-gear contact), then charge in.
+      // attackContactScale defines the threshold as a fraction of summed radii.
       const physicalContactDist = player.radius + target.radius;
-      const effectiveRange = physicalContactDist * (this.config.combat.attackContactScale || 0.94);
+      const contactThreshold = physicalContactDist * (this.config.combat.attackContactScale || 0.88);
 
-      if (distance > effectiveRange * 0.92) {
-        const orbit = distance < effectiveRange * 2.2 ? this.config.physics.orbitStrength : 0.08;
+      if (distance > contactThreshold) {
+        // Approach with slight orbit spiral so tops don't collide head-on at perfectly parallel paths
+        const orbit = distance < contactThreshold * 2.4 ? this.config.physics.orbitStrength * 0.5 : 0.06;
         const desiredX = nx * player.speed + -ny * player.speed * orbit;
         const desiredY = ny * player.speed + nx * player.speed * orbit;
         this.steer(player, desiredX, desiredY);
         this.move(player, dt);
       } else {
-        const circle = Math.random() < 0.5 ? 1 : -1;
-        this.steer(player, -ny * player.speed * 0.55 * circle, nx * player.speed * 0.55 * circle);
+        // At contact range: charge straight into target so collision system handles the bounce.
+        // Small lateral jitter keeps combat visually lively.
+        const jitter = (Math.random() - 0.5) * 0.25;
+        this.steer(player,
+          nx * player.speed + -ny * player.speed * jitter,
+          ny * player.speed + nx * player.speed * jitter
+        );
         this.move(player, dt);
         this.tryAttack(player, target, now);
+      }
+
+      // Gentle center-pull so all tops gravitate toward the arena middle.
+      const cx = this.config.arena.width / 2;
+      const cy = this.config.arena.height / 2;
+      const cdx = cx - player.x;
+      const cdy = cy - player.y;
+      const cdist = Math.hypot(cdx, cdy) || 1;
+      if (cdist > 80) {
+        const pull = (this.config.physics.centerPullStrength || 0.055) * player.speed * dt;
+        player.vx += (cdx / cdist) * pull;
+        player.vy += (cdy / cdist) * pull;
       }
 
       // Laser fires regardless of melee range on its own cooldown.

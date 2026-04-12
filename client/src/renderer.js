@@ -23,7 +23,9 @@ const HP_COLORS = [
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
+    // desynchronized:true removed — it decouples canvas updates from the browser
+    // compositing cycle which causes intermittent blank frames (flickering).
+    this.ctx = canvas.getContext("2d", { alpha: true });
     this.config = null;
     this.state = { players: [], leaderboard: [] };
     this.effects = [];
@@ -164,6 +166,11 @@ export class Renderer {
     this.canvas.height = Math.floor(window.innerHeight * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    // Force GPU compositing layer — prevents flickering on high-refresh displays
+    // and lets the GPU handle compositing independently of JS paint.
+    this.canvas.style.transform = "translateZ(0)";
+    this.canvas.style.willChange = "transform";
+
     this.background.width = Math.floor(window.innerWidth * dpr);
     this.background.height = Math.floor(window.innerHeight * dpr);
     this.background.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -189,9 +196,20 @@ export class Renderer {
     this.updateCamera(dt);
     const detail = getDetailLevel(displayPlayers.length);
 
-    if (this.backgroundDirty) this.drawBackground();
+    if (this.backgroundDirty) {
+      this.drawBackground();
+      // Snapshot background into a GPU-side ImageBitmap so every frame's
+      // drawImage is a GPU blit instead of a CPU canvas read-back.
+      if (typeof createImageBitmap !== "undefined") {
+        createImageBitmap(this.background).then((bmp) => {
+          if (this.backgroundBitmap) this.backgroundBitmap.close();
+          this.backgroundBitmap = bmp;
+        });
+      }
+    }
     ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(this.background, 0, 0, width, height);
+    const bgSource = this.backgroundBitmap || this.background;
+    ctx.drawImage(bgSource, 0, 0, width, height);
 
     const sorted = [...displayPlayers].sort((a, b) => a.radius - b.radius);
     const crownedId = this.state.leaderboard?.find((entry) => entry.id)?.id || null;
