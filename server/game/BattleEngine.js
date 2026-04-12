@@ -74,70 +74,94 @@ export class BattleEngine {
         player.lastTargetScanAt = now;
       }
 
+      this.updatePhase(player, byId, now);
+
       const target = byId.get(player.targetId);
-      if (!target) {
-        this.wander(player, dt);
-        // Pull wandering tops toward center so they rejoin the fight.
-        const cx = this.config.arena.width / 2;
-        const cy = this.config.arena.height / 2;
-        const cdx = cx - player.x;
-        const cdy = cy - player.y;
-        const cdist = Math.hypot(cdx, cdy) || 1;
-        if (cdist > 80) {
-          const pull = (this.config.physics.centerPullStrength || 0.055) * player.speed * dt;
-          player.vx += (cdx / cdist) * pull;
-          player.vy += (cdy / cdist) * pull;
+
+      if (player.phase === "attack" && target) {
+        const dx = target.x - player.x;
+        const dy = target.y - player.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const nx = dx / distance;
+        const ny = dy / distance;
+
+        const physicalContactDist = player.radius + target.radius;
+        const contactThreshold = physicalContactDist * (this.config.combat.attackContactScale || 0.88);
+
+        if (distance > contactThreshold) {
+          const orbit = distance < contactThreshold * 2.4 ? this.config.physics.orbitStrength * 0.5 : 0.06;
+          const desiredX = nx * player.speed + -ny * player.speed * orbit;
+          const desiredY = ny * player.speed + nx * player.speed * orbit;
+          this.steer(player, desiredX, desiredY);
+          this.move(player, dt);
+        } else {
+          const jitter = (Math.random() - 0.5) * 0.2;
+          this.steer(player,
+            nx * player.speed + -ny * player.speed * jitter,
+            ny * player.speed + nx * player.speed * jitter
+          );
+          this.move(player, dt);
+          this.tryAttack(player, target, now);
         }
-        continue;
-      }
 
-      const dx = target.x - player.x;
-      const dy = target.y - player.y;
-      const distance = Math.hypot(dx, dy) || 1;
-      const nx = dx / distance;
-      const ny = dy / distance;
-
-      // Approach until physically touching (gear-to-gear contact), then charge in.
-      // attackContactScale defines the threshold as a fraction of summed radii.
-      const physicalContactDist = player.radius + target.radius;
-      const contactThreshold = physicalContactDist * (this.config.combat.attackContactScale || 0.88);
-
-      if (distance > contactThreshold) {
-        // Approach with slight orbit spiral so tops don't collide head-on at perfectly parallel paths
-        const orbit = distance < contactThreshold * 2.4 ? this.config.physics.orbitStrength * 0.5 : 0.06;
-        const desiredX = nx * player.speed + -ny * player.speed * orbit;
-        const desiredY = ny * player.speed + nx * player.speed * orbit;
-        this.steer(player, desiredX, desiredY);
-        this.move(player, dt);
+        this.tryFireLaser(player, target, now, players);
       } else {
-        // At contact range: steer straight into target so the velocity-based
-        // collision impulse handles the bounce (no direct position correction).
-        const jitter = (Math.random() - 0.5) * 0.2;
-        this.steer(player,
-          nx * player.speed + -ny * player.speed * jitter,
-          ny * player.speed + nx * player.speed * jitter
-        );
-        this.move(player, dt);
-        this.tryAttack(player, target, now);
+        this.wanderNatural(player, now, dt);
+        if (target) this.tryFireLaser(player, target, now, players);
       }
 
-      // Gentle center-pull so all tops gravitate toward the arena middle.
+      // Soft center pull with deadzone so tops drift naturally until far from middle.
       const cx = this.config.arena.width / 2;
       const cy = this.config.arena.height / 2;
       const cdx = cx - player.x;
       const cdy = cy - player.y;
       const cdist = Math.hypot(cdx, cdy) || 1;
-      if (cdist > 80) {
-        const pull = (this.config.physics.centerPullStrength || 0.055) * player.speed * dt;
+      const deadzone = this.config.physics.centerPullDeadzone || 400;
+      if (cdist > deadzone) {
+        const pull = (this.config.physics.centerPullStrength || 0.02) * player.speed * dt;
         player.vx += (cdx / cdist) * pull;
         player.vy += (cdy / cdist) * pull;
       }
-
-      // Laser fires regardless of melee range on its own cooldown.
-      this.tryFireLaser(player, target, now, players);
     }
 
     this.resolveCollisions(players);
+  }
+
+  updatePhase(player, byId, now) {
+    const combat = this.config.combat;
+    if (!player.phaseEndsAt || now >= player.phaseEndsAt) {
+      if (player.phase === "attack") {
+        player.phase = "wander";
+        player.phaseEndsAt = now + randRange(combat.wanderDurationMs);
+        player.nextImpulseAt = 0;
+      } else {
+        const target = byId.get(player.targetId);
+        const nearEnough = target && distanceSq(player, target) <
+          Math.pow((player.radius + target.radius) * (combat.engageRadiusMultiplier || 3.2), 2);
+        if (target && (nearEnough || Math.random() < (combat.engageChance || 0.35))) {
+          player.phase = "attack";
+          player.phaseEndsAt = now + randRange(combat.attackDurationMs);
+        } else {
+          player.phase = "wander";
+          player.phaseEndsAt = now + randRange(combat.wanderDurationMs);
+          player.nextImpulseAt = 0;
+        }
+      }
+    }
+  }
+
+  wanderNatural(player, now, dt) {
+    if (!player.nextImpulseAt || now >= player.nextImpulseAt) {
+      const angle = Math.random() * Math.PI * 2;
+      const force = player.speed * (0.35 + Math.random() * 0.35);
+      player.vx += Math.cos(angle) * force;
+      player.vy += Math.sin(angle) * force;
+      player.nextImpulseAt = now + 350 + Math.random() * 350;
+    }
+    const jitter = this.config.physics.spinJitter;
+    player.vx += (Math.random() - 0.5) * player.speed * jitter;
+    player.vy += (Math.random() - 0.5) * player.speed * jitter;
+    this.move(player, dt);
   }
 
   findTarget(player, players) {
@@ -589,6 +613,12 @@ export class BattleEngine {
     this.capVelocity(a);
     this.capVelocity(b);
 
+    // Force brief disengage so tops don't stick after a hit.
+    const cooldown = this.config.combat.postCollisionWanderMs || [400, 700];
+    const until = Date.now() + randRange(cooldown);
+    if (a.phase !== "wander" || a.phaseEndsAt < until) { a.phase = "wander"; a.phaseEndsAt = until; a.nextImpulseAt = 0; }
+    if (b.phase !== "wander" || b.phaseEndsAt < until) { b.phase = "wander"; b.phaseEndsAt = until; b.nextImpulseAt = 0; }
+
     // Spark at contact surface point (only if collision has meaningful speed)
     const impactSpeed = Math.abs(separatingVelocity);
     if (this.sparkEventBudget > 0 && impactSpeed > 40) {
@@ -697,4 +727,12 @@ function distanceSq(a, b) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function randRange(range) {
+  if (Array.isArray(range) && range.length >= 2) {
+    const [min, max] = range;
+    return min + Math.random() * (max - min);
+  }
+  return Number(range) || 0;
 }

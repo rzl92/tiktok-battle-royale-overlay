@@ -54,7 +54,12 @@ export const gameConfig = {
     idleWanderTurnChance: 0.055,
     attackContactScale: 0.88,
     giantSlayerBonusHpStep: 500,
-    giantSlayerMaxBonus: 12
+    giantSlayerMaxBonus: 12,
+    wanderDurationMs: [1500, 3000],
+    attackDurationMs: [1000, 2000],
+    engageChance: 0.35,
+    engageRadiusMultiplier: 3.2,
+    postCollisionWanderMs: [400, 700]
   },
   physics: {
     friction: 0.984,
@@ -68,7 +73,8 @@ export const gameConfig = {
     spinJitter: 0.04,
     collisionCellSize: 700,
     collisionContactScale: 0.70,
-    centerPullStrength: 0.055,
+    centerPullStrength: 0.02,
+    centerPullDeadzone: 400,
     boostImpulseBase: 220,
     boostImpulseMax: 680
   },

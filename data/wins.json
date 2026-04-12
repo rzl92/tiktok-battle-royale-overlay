@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "key": "player0",
+      "username": "player0",
+      "wins": 0,
+      "className": "Berserker",
+      "avatarUrl": null
+    },
+    {
+      "key": "player1",
+      "username": "player1",
+      "wins": 0,
+      "className": "Mage",
+      "avatarUrl": null
+    },
+    {
+      "key": "player2",
+      "username": "player2",
+      "wins": 0,
+      "className": "Swordsman",
+      "avatarUrl": null
+    },
+    {
+      "key": "player3",
+      "username": "player3",
+      "wins": 0,
+      "className": "Tank",
+      "avatarUrl": null
+    },
+    {
+      "key": "player4",
+      "username": "player4",
+      "wins": 0,
+      "className": "Assassin",
+      "avatarUrl": null
+    },
+    {
+      "key": "player5",
+      "username": "player5",
+      "wins": 0,
+      "className": "Berserker",
+      "avatarUrl": null
+    },
+    {
+      "key": "player6",
+      "username": "player6",
+      "wins": 0,
+      "className": "Mage",
+      "avatarUrl": null
+    },
+    {
+      "key": "player7",
+      "username": "player7",
+      "wins": 0,
+      "className": "Swordsman",
+      "avatarUrl": null
+    },
+    {
+      "key": "player8",
+      "username": "player8",
+      "wins": 0,
+      "className": "Tank",
+      "avatarUrl": null
+    },
+    {
+      "key": "player9",
+      "username": "player9",
+      "wins": 0,
+      "className": "Assassin",
+      "avatarUrl": null
+    },
+    {
+      "key": "player10",
+      "username": "player10",
+      "wins": 0,
+      "className": "Swordsman",
+      "avatarUrl": null
+    },
+    {
+      "key": "player11",
+      "username": "player11",
+      "wins": 0,
+      "className": "Tank",
+      "avatarUrl": null
+    },
+    {
+      "key": "player12",
+      "username": "player12",
+      "wins": 0,
+      "className": "Assassin",
+      "avatarUrl": null
+    },
+    {
+      "key": "player13",
+      "username": "player13",
+      "wins": 0,
+      "className": "Berserker",
+      "avatarUrl": null
+    },
+    {
+      "key": "player14",
+      "username": "player14",
+      "wins": 0,
+      "className": "Mage",
+      "avatarUrl": null
+    },
+    {
+      "key": "p0",
+      "username": "p0",
+      "wins": 0,
+      "className": "Swordsman",
+      "avatarUrl": null
+    },
+    {
+      "key": "p1",
+      "username": "p1",
+      "wins": 0,
+      "className": "Tank",
+      "avatarUrl": null
+    },
+    {
+      "key": "p2",
+      "username": "p2",
+      "wins": 0,
+      "className": "Assassin",
+      "avatarUrl": null
+    },
+    {
+      "key": "p3",
+      "username": "p3",
+      "wins": 0,
+      "className": "Berserker",
+      "avatarUrl": null
+    },
+    {
+      "key": "p4",
+      "username": "p4",
+      "wins": 0,
+      "className": "Mage",
+      "avatarUrl": null
+    },
+    {
+      "key": "p5",
+      "username": "p5",
+      "wins": 0,
+      "className": "Swordsman",
+      "avatarUrl": null
+    },
+    {
+      "key": "p6",
+      "username": "p6",
+      "wins": 0,
+      "className": "Tank",
+      "avatarUrl": null
+    },
+    {
+      "key": "p7",
+      "username": "p7",
+      "wins": 0,
+      "className": "Assassin",
+      "avatarUrl": null
+    },
+    {
+      "key": "p8",
+      "username": "p8",
+      "wins": 0,
+      "className": "Berserker",
+      "avatarUrl": null
+    },
+    {
+      "key": "p9",
+      "username": "p9",
+      "wins": 0,
+      "className": "Mage",
+      "avatarUrl": null
+    },
+    {
+      "key": "p10",
+      "username": "p10",
+      "wins": 0,
+      "className": "Mage",
+      "avatarUrl": null
+    },
+    {
+      "key": "p11",
+      "username": "p11",
+      "wins": 0,
+      "className": "Swordsman",
+      "avatarUrl": null
+    },
+    {
+      "key": "p12",
+      "username": "p12",
+      "wins": 0,
+      "className": "Tank",
+      "avatarUrl": null
+    },
+    {
+      "key": "p13",
+      "username": "p13",
+      "wins": 0,
+      "className": "Assassin",
+      "avatarUrl": null
+    },
+    {
+      "key": "p14",
+      "username": "p14",
+      "wins": 0,
+      "className": "Berserker",
+      "avatarUrl": null
+    }
+  ]
+}
