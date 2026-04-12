@@ -38,8 +38,15 @@ export class UIManager {
     this.roundResetSeconds = document.getElementById("roundResetSeconds");
     this.roundResetSave = document.getElementById("roundResetSave");
     this.roundResetStatus = document.getElementById("roundResetStatus");
+    this.battleTimerEnabled = document.getElementById("battleTimerEnabled");
+    this.battleTimerMinutes = document.getElementById("battleTimerMinutes");
+    this.battleTimerSave = document.getElementById("battleTimerSave");
+    this.battleTimerStatus = document.getElementById("battleTimerStatus");
     this.resetWinsButton = document.getElementById("resetWinsButton");
     this.resetWinsStatus = document.getElementById("resetWinsStatus");
+    this.battleTimer = document.getElementById("battleTimer");
+    this.battleTimerText = document.getElementById("battleTimerText");
+    this.battleTimerLabel = document.getElementById("battleTimerLabel");
     this.appMeta = document.getElementById("appMeta");
     this.backendUrl = getBackendUrl();
 
@@ -83,6 +90,10 @@ export class UIManager {
 
     this.roundResetSave.addEventListener("click", () => {
       this.saveRoundResetSeconds();
+    });
+
+    this.battleTimerSave.addEventListener("click", () => {
+      this.saveBattleTimerSettings();
     });
 
     this.resetWinsButton.addEventListener("click", () => {
@@ -154,6 +165,11 @@ export class UIManager {
       const credit = config.app.credit ? escapeHtml(config.app.credit) : "";
       this.appMeta.innerHTML = [version, credit].filter(Boolean).join(" &middot; ");
     }
+    if (config?.battleTimer) {
+      const seconds = Math.max(0, Number(config.battleTimer.durationSeconds) || 0);
+      this.battleTimerEnabled.checked = !!config.battleTimer.enabled && seconds > 0;
+      this.battleTimerMinutes.value = Math.max(1, Math.ceil(seconds / 60) || 5);
+    }
   }
 
   async saveRoundResetSeconds() {
@@ -176,6 +192,50 @@ export class UIManager {
     } finally {
       this.roundResetSave.disabled = false;
     }
+  }
+
+  async saveBattleTimerSettings() {
+    const enabled = this.battleTimerEnabled.checked;
+    const minutes = Math.max(1, Math.min(1440, Math.round(Number(this.battleTimerMinutes.value) || 5)));
+    const durationSeconds = enabled ? minutes * 60 : 0;
+    this.battleTimerMinutes.value = minutes;
+    this.battleTimerSave.disabled = true;
+    this.battleTimerStatus.textContent = "Saving battle timer...";
+    try {
+      const response = await fetch(`${this.backendUrl || window.location.origin}/settings/battle-timer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled, durationSeconds })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Unable to save battle timer");
+      this.battleTimerEnabled.checked = data.enabled;
+      this.battleTimerMinutes.value = Math.max(1, Math.ceil((data.durationSeconds || 0) / 60) || minutes);
+      this.battleTimerStatus.textContent = data.enabled
+        ? `Battle timer saved: ${formatDuration(data.durationSeconds * 1000)}.`
+        : "Battle timer disabled. Battle is unlimited.";
+    } catch (error) {
+      this.battleTimerStatus.textContent = `Save failed: ${error.message}`;
+    } finally {
+      this.battleTimerSave.disabled = false;
+    }
+  }
+
+  updateBattleTimer(timer) {
+    if (!timer?.enabled) {
+      this.battleTimer.hidden = true;
+      return;
+    }
+    this.battleTimer.hidden = false;
+    const remainingMs = Math.max(0, Number(timer.remainingMs ?? timer.durationSeconds * 1000) || 0);
+    this.battleTimerText.textContent = formatDuration(remainingMs);
+    const danger = remainingMs <= 10000 || timer.expired;
+    this.battleTimer.classList.toggle("is-danger", danger);
+    this.battleTimerLabel.textContent = timer.status === "waiting"
+      ? "WAITING"
+      : timer.status === "finalFight"
+        ? "FINAL FIGHT"
+        : "";
   }
 
   async resetAllWins() {
@@ -283,4 +343,12 @@ function formatCompact(value) {
   if (number < 1000) return String(number);
   const compact = number / 1000;
   return `${Number.isInteger(compact) ? compact.toFixed(0) : compact.toFixed(1)}K`;
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }

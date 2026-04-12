@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TikTok Battle Royale Overlay</title>
-    <link rel="stylesheet" href="/client/styles.css?v=20260412-top-simple-5" />
+    <link rel="stylesheet" href="/client/styles.css?v=20260412-battle-timer-1" />
   </head>
   <body>
     <main id="overlayRoot">
@@ -13,6 +13,11 @@
         <div id="leaderboardPanel">
           <h2>Top Players</h2>
           <ol id="leaderboard"></ol>
+        </div>
+
+        <div id="battleTimer" hidden>
+          <div id="battleTimerText">00:00:00</div>
+          <div id="battleTimerLabel"></div>
         </div>
 
         <button id="settingsButton" type="button" aria-label="Settings">&#9881;</button>
@@ -33,6 +38,23 @@
               </label>
               <button id="roundResetSave" class="settingsAction" type="button">Save timer</button>
               <p id="roundResetStatus">Timer follows backend config.</p>
+            </div>
+          </div>
+
+          <div class="settingsSection">
+            <h3>Battle Timer</h3>
+            <div class="countdownRow">
+              <label class="toggleLabel">
+                <input id="battleTimerEnabled" type="checkbox" />
+                <span>Enable timed battle</span>
+              </label>
+              <label class="countdownDuration">
+                <span>Duration</span>
+                <input id="battleTimerMinutes" type="number" min="1" max="1440" step="1" value="5" />
+                <span>minutes</span>
+              </label>
+              <button id="battleTimerSave" class="settingsAction" type="button">Save battle timer</button>
+              <p id="battleTimerStatus">Disabled means unlimited battle.</p>
             </div>
           </div>
 
@@ -98,6 +120,6 @@
       <div id="winnerBanner" hidden></div>
     </main>
     <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="/client/src/main.js?v=20260412-top-simple-5"></script>
+    <script type="module" src="/client/src/main.js?v=20260412-battle-timer-1"></script>
   </body>
 </html>

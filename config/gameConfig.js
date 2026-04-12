@@ -82,6 +82,10 @@ export const gameConfig = {
   round: {
     resetSeconds: Number(process.env.ROUND_RESET_SECONDS || 8)
   },
+  battleTimer: {
+    enabled: false,
+    durationSeconds: Number(process.env.BATTLE_TIMER_SECONDS || 0)
+  },
   app: {
     version: "1.0.0",
     credit: "created by rizaru.plays"

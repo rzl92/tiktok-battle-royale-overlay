@@ -1,6 +1,6 @@
-import { Renderer } from "./renderer.js?v=20260412-top-simple-5";
-import { SoundManager } from "./soundManager.js?v=20260412-top-simple-5";
-import { UIManager } from "./uiManager.js?v=20260412-top-simple-5";
+import { Renderer } from "./renderer.js?v=20260412-battle-timer-1";
+import { SoundManager } from "./soundManager.js?v=20260412-battle-timer-1";
+import { UIManager } from "./uiManager.js?v=20260412-battle-timer-1";
 
 const canvas = document.getElementById("arena");
 const root = document.getElementById("overlayRoot");
@@ -89,6 +89,7 @@ socket.on("state", (state) => {
   renderer.setState(state);
   ui.updateLeaderboard(state.leaderboard || []);
   ui.updateWinner(state.roundWinner, state.resetAt);
+  ui.updateBattleTimer(state.battleTimer);
 });
 
 socket.on("events", (events) => {

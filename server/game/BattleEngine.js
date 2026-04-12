@@ -11,6 +11,9 @@ export class BattleEngine {
     this.hitEventBudget = 0;
     this.sparkEventBudget = 0;
     this.peakPlayerCount = 0;
+    this.battleStartedAt = 0;
+    this.battleEndsAt = 0;
+    this.battleTimerExpired = false;
   }
 
   start(tickRate) {
@@ -34,6 +37,7 @@ export class BattleEngine {
     this.sparkEventBudget = players.length > 80 ? 4 : players.length > 40 ? 8 : 14;
     
     if (players.length > this.peakPlayerCount) this.peakPlayerCount = players.length;
+    const timerExpired = this.updateBattleTimer(players, now);
 
     if (players.length >= 1) {
       if (players.length > 1) {
@@ -43,7 +47,7 @@ export class BattleEngine {
       this.updatePlayers(players, now, dt);
     }
     
-    if (players.length === 1 && this.peakPlayerCount >= 2 && !this.roundWinner) {
+    if (players.length === 1 && this.peakPlayerCount >= 2 && timerExpired && !this.roundWinner) {
       this.handleWinner(players[0], now);
     }
 
@@ -323,6 +327,7 @@ export class BattleEngine {
     this.roundWinner = null;
     this.resetAt = 0;
     this.peakPlayerCount = 0;
+    this.clearBattleTimer();
     return event;
   }
 
@@ -331,6 +336,94 @@ export class BattleEngine {
     const event = this.pushEvent({ type: "winsReset", ...result });
     this.io.emit("state", this.getSnapshot());
     return { ...result, event };
+  }
+
+  updateBattleTimer(players, now) {
+    if (!this.isBattleTimerEnabled()) {
+      this.clearBattleTimer();
+      return false;
+    }
+
+    if (players.length === 0) {
+      this.clearBattleTimer();
+      return false;
+    }
+
+    if (!this.battleStartedAt && this.peakPlayerCount >= 2) {
+      const durationMs = this.getBattleTimerDurationSeconds() * 1000;
+      this.battleStartedAt = now;
+      this.battleEndsAt = now + durationMs;
+      this.battleTimerExpired = durationMs <= 0;
+    }
+
+    if (this.battleEndsAt > 0 && now >= this.battleEndsAt) {
+      this.battleTimerExpired = true;
+    }
+
+    return this.battleTimerExpired;
+  }
+
+  clearBattleTimer() {
+    this.battleStartedAt = 0;
+    this.battleEndsAt = 0;
+    this.battleTimerExpired = false;
+  }
+
+  isBattleTimerEnabled() {
+    return !!this.config.battleTimer?.enabled && this.getBattleTimerDurationSeconds() > 0;
+  }
+
+  getBattleTimerDurationSeconds() {
+    return Math.max(0, Math.round(Number(this.config.battleTimer?.durationSeconds || 0)));
+  }
+
+  getBattleTimerSettings() {
+    return {
+      enabled: this.isBattleTimerEnabled(),
+      durationSeconds: this.getBattleTimerDurationSeconds()
+    };
+  }
+
+  setBattleTimerSettings({ enabled, durationSeconds }) {
+    const duration = clamp(Math.round(Number(durationSeconds || 0)), 0, 86400);
+    const isEnabled = enabled === true || enabled === 1 || enabled === "1" || enabled === "true";
+    if (!this.config.battleTimer) this.config.battleTimer = {};
+    this.config.battleTimer.enabled = isEnabled && duration > 0;
+    this.config.battleTimer.durationSeconds = duration;
+    this.clearBattleTimer();
+    this.roundWinner = null;
+    this.resetAt = 0;
+    this.peakPlayerCount = this.playerManager.getAlivePlayers().length;
+    this.io.emit("config", { config: this.config, transparent: this.transparent });
+    this.io.emit("state", this.getSnapshot());
+    return this.getBattleTimerSettings();
+  }
+
+  getBattleTimerState(now = Date.now()) {
+    const settings = this.getBattleTimerSettings();
+    if (!settings.enabled) {
+      return { ...settings, startedAt: 0, endsAt: 0, remainingMs: null, expired: false, status: "unlimited" };
+    }
+    if (!this.battleStartedAt) {
+      return {
+        ...settings,
+        startedAt: 0,
+        endsAt: 0,
+        remainingMs: settings.durationSeconds * 1000,
+        expired: false,
+        status: "waiting"
+      };
+    }
+    const remainingMs = Math.max(0, this.battleEndsAt - now);
+    const expired = this.battleTimerExpired || remainingMs <= 0;
+    return {
+      ...settings,
+      startedAt: this.battleStartedAt,
+      endsAt: this.battleEndsAt,
+      remainingMs,
+      expired,
+      status: this.roundWinner ? "winner" : expired ? "finalFight" : "running"
+    };
   }
 
   getRoundSettings() {
@@ -528,7 +621,8 @@ export class BattleEngine {
         .sort((a, b) => b.wins - a.wins || b.hp - a.hp)
         .slice(0, this.config.leaderboard.limit),
       roundWinner: this.roundWinner,
-      resetAt: this.resetAt
+      resetAt: this.resetAt,
+      battleTimer: this.getBattleTimerState()
     };
   }
 }

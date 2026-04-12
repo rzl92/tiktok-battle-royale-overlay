@@ -211,6 +211,20 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     });
   });
 
+  router.get("/settings/battle-timer", (req, res) => {
+    res.json({ ok: true, action: "settings.battleTimer", ...battleEngine.getBattleTimerSettings() });
+  });
+
+  router.post("/settings/battle-timer", (req, res) => {
+    queue.enqueue(res, () => {
+      const settings = battleEngine.setBattleTimerSettings({
+        enabled: req.body?.enabled ?? req.query?.enabled,
+        durationSeconds: req.body?.durationSeconds ?? req.query?.durationSeconds ?? req.body?.seconds ?? req.query?.seconds
+      });
+      res.json({ ok: true, action: "settings.battleTimer", ...settings });
+    });
+  });
+
   router.post("/settings/wins/reset", (req, res) => {
     queue.enqueue(res, async () => {
       const result = await battleEngine.resetWins();

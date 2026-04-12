@@ -249,10 +249,12 @@ export class Renderer {
     const y = screen.y;
     const spin = time * 0.014 + player.x * 0.01;
     const avatarR = r * 0.5;
+    const visual = this.getTopVisual(player, time);
 
-    this.drawSingleGear(x, y, r, player, spin);
+    if (visual.flame) this.drawFlameAura(x, y, r, visual, time);
+    this.drawSingleGear(x, y, r, player, spin, visual);
     this.drawAvatar(player, x, y, avatarR, isCrowned);
-    this.drawHealthRing(x, y, avatarR, player, detail);
+    this.drawHealthRing(x, y, avatarR, player, detail, visual.ringColor);
   }
 
   allowVisualEffect(key, minMs) {
@@ -269,7 +271,7 @@ export class Renderer {
     return true;
   }
 
-  drawHealthRing(x, y, avatarR, player, detail) {
+  drawHealthRing(x, y, avatarR, player, detail, colorOverride = null) {
     const ctx = this.ctx;
     const maxHp = Math.max(1, player.maxSeenHP || player.hp || 1);
     const ratio = clamp(player.hp / maxHp, 0, 1);
@@ -286,7 +288,7 @@ export class Renderer {
     ctx.arc(x, y, ringRadius, 0, TWO_PI);
     ctx.stroke();
 
-    ctx.strokeStyle = hpBarColor(ratio, player.hp, auraColor);
+    ctx.strokeStyle = colorOverride || hpBarColor(ratio, player.hp, auraColor);
     ctx.lineWidth = width;
     ctx.beginPath();
     ctx.arc(x, y, ringRadius, -Math.PI / 2, -Math.PI / 2 + TWO_PI * ratio);
@@ -294,18 +296,70 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawSingleGear(x, y, r, player, spin) {
+  getTopVisual(player, time) {
+    if (player.hp >= 1000) {
+      const hue = (time * 0.065 + player.x * 0.08 + player.y * 0.04) % 360;
+      return {
+        color: `hsl(${hue}, 100%, 58%)`,
+        accent: `hsl(${(hue + 54) % 360}, 100%, 76%)`,
+        ringColor: `hsl(${(hue + 18) % 360}, 100%, 62%)`,
+        flame: player.hp >= 3000,
+        elite: player.hp >= 5000
+      };
+    }
+    return {
+      color: player.color,
+      accent: player.accent,
+      ringColor: null,
+      flame: false,
+      elite: false
+    };
+  }
+
+  drawFlameAura(x, y, r, visual, time) {
     const ctx = this.ctx;
-    const teeth = 8;
-    const inner = r * 0.56;
-    const outer = r * 0.86;
+    const flames = visual.elite ? 14 : 9;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < flames; i += 1) {
+      const angle = (i / flames) * TWO_PI + time * 0.0018;
+      const pulse = 0.5 + Math.sin(time * 0.006 + i * 1.7) * 0.5;
+      const base = r * (visual.elite ? 0.82 : 0.76);
+      const tip = r * (visual.elite ? 1.18 + pulse * 0.1 : 1.04 + pulse * 0.08);
+      const width = r * (visual.elite ? 0.12 : 0.09);
+      const bx = x + Math.cos(angle) * base;
+      const by = y + Math.sin(angle) * base;
+      const tx = x + Math.cos(angle) * tip;
+      const ty = y + Math.sin(angle) * tip;
+      const px = -Math.sin(angle) * width;
+      const py = Math.cos(angle) * width;
+      const gradient = ctx.createLinearGradient(bx, by, tx, ty);
+      gradient.addColorStop(0, "rgba(255, 225, 80, 0.08)");
+      gradient.addColorStop(0.45, "rgba(255, 112, 36, 0.46)");
+      gradient.addColorStop(1, "rgba(255, 42, 64, 0)");
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(bx - px, by - py);
+      ctx.quadraticCurveTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r, tx, ty);
+      ctx.quadraticCurveTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r, bx + px, by + py);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  drawSingleGear(x, y, r, player, spin, visual) {
+    const ctx = this.ctx;
+    const teeth = visual.elite ? 12 : 8;
+    const inner = r * (visual.elite ? 0.48 : 0.56);
+    const outer = r * (visual.elite ? 0.96 : 0.86);
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(spin);
-    ctx.fillStyle = hexToRgba(player.color, 0.92);
+    ctx.fillStyle = toRgba(visual.color, 0.92);
     ctx.strokeStyle = "rgba(0, 0, 0, 0.74)";
-    ctx.lineWidth = Math.max(2, r * 0.045);
+    ctx.lineWidth = Math.max(2, r * (visual.elite ? 0.055 : 0.045));
 
     ctx.beginPath();
     for (let i = 0; i < teeth * 2; i += 1) {
@@ -320,11 +374,18 @@ export class Renderer {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = hexToRgba(player.accent, 0.72);
+    ctx.fillStyle = toRgba(visual.accent, 0.72);
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.62, 0, TWO_PI);
+    ctx.arc(0, 0, r * (visual.elite ? 0.58 : 0.62), 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
+    if (visual.elite) {
+      ctx.strokeStyle = toRgba(visual.ringColor, 0.9);
+      ctx.lineWidth = Math.max(2, r * 0.035);
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.72, 0, TWO_PI);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1289,6 +1350,12 @@ function hpBarColor(ratio, hp, auraColor) {
   if (ratio > 0.50) return "#f0d020";
   if (ratio > 0.25) return "#ff8c20";
   return "#ff3030";
+}
+
+function toRgba(color, alpha) {
+  if (String(color).startsWith("#")) return hexToRgba(color, alpha);
+  if (String(color).startsWith("hsl(")) return color.replace("hsl(", "hsla(").replace(")", `, ${alpha})`);
+  return color;
 }
 
 function hexToRgba(hex, alpha) {

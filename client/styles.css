@@ -98,6 +98,46 @@ body {
   background: rgba(255, 216, 77, 0.15);
 }
 
+#battleTimer {
+  position: absolute;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 156px;
+  padding: 8px 16px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(5, 8, 12, 0.72);
+  text-align: center;
+  color: #ffffff;
+}
+
+#battleTimer.is-danger {
+  border-color: rgba(255, 72, 88, 0.65);
+  color: #ff4b5f;
+  animation: timerPulse 1.6s ease-in-out infinite;
+}
+
+#battleTimerText {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+#battleTimerLabel {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 900;
+  color: #ffd84d;
+}
+
+@keyframes timerPulse {
+  0%, 100% { opacity: 0.82; }
+  50% { opacity: 1; }
+}
+
 .rank {
   color: var(--gold);
   font-weight: 900;
