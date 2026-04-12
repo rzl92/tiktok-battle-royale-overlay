@@ -30,6 +30,7 @@ export class Renderer {
     this.displayPlayers = new Map();
     this.avatarCache = new Map();
     this.fastSpriteCache = new Map();
+    this.lastVisualEffectAt = new Map();
     this.camera = { x: 540, y: 960 };
     this.lastTime = 0;
     this.background = document.createElement("canvas");
@@ -95,12 +96,14 @@ export class Renderer {
       this.pushEffect({ kind: "hit", x: event.x, y: event.y, damage: event.damage, life: 360, max: 360 });
     }
     if (event.type === "join") {
+      if (!this.allowVisualEffect(`join:${event.playerId || event.username}`, 180)) return;
       this.pushEffect({ kind: "burst", x: event.x, y: event.y, color: "#ffffff", life: 800, max: 800 });
     }
     if (event.type === "death") {
       this.pushEffect({ kind: "burst", x: event.x, y: event.y, color: "#ff3d6e", life: 620, max: 620 });
     }
     if (event.type === "gift") {
+      if (!this.allowVisualEffect(`heal:${event.playerId || event.username}`, 90)) return;
       this.pushEffect({
         kind: "heal",
         x: event.x,
@@ -248,23 +251,26 @@ export class Renderer {
     const wobble = Math.sin(time * 0.006 + player.y * 0.04) * r * 0.035;
     const x = screen.x;
     const y = screen.y + wobble;
+    const avatarR = r * 0.52;
+    const showAvatar = r > 14 && (detail === "high" || showName || player.auraLevel > 0);
 
     if (detail === "ultra") {
       this.drawFastTop(x, y, r, player, spin, showName);
-      this.drawHealthRing(x, y, r, player, detail);
+      this.drawHealthRing(x, y, avatarR, player, detail);
       return;
     }
 
     if (detail === "low") {
       this.drawFastTop(x, y, r, player, spin, showName);
-      this.drawHealthRing(x, y, r, player, detail);
+      if (showName) this.drawAvatar(player, x, y, avatarR);
+      this.drawHealthRing(x, y, avatarR, player, detail);
       return;
     }
 
     if (profile.blades <= 0 || player.hp <= 25) {
       this.drawBareTop(x, y, r, player, spin, showName);
-      this.drawHealthRing(x, y, r, player, detail);
-      if (r > 14 && (detail === "high" || showName)) this.drawAvatar(player, x, y, r * 0.52);
+      if (showAvatar) this.drawAvatar(player, x, y, avatarR);
+      this.drawHealthRing(x, y, avatarR, player, detail);
       return;
     }
 
@@ -283,18 +289,32 @@ export class Renderer {
     this.drawCenterCore(r, player, spin);
     ctx.restore();
 
-    this.drawHealthRing(x, y, r, player, detail);
-    if (r > 14 && (detail === "high" || showName || player.auraLevel > 0)) this.drawAvatar(player, x, y, r * 0.52);
+    if (showAvatar) this.drawAvatar(player, x, y, avatarR);
+    this.drawHealthRing(x, y, avatarR, player, detail);
     if (showName) this.drawNameplate(player, x, y, r);
   }
 
-  drawHealthRing(x, y, r, player, detail) {
+  allowVisualEffect(key, minMs) {
+    const now = performance.now();
+    const last = this.lastVisualEffectAt.get(key) || 0;
+    if (now - last < minMs) return false;
+    this.lastVisualEffectAt.set(key, now);
+    if (this.lastVisualEffectAt.size > 600) {
+      const cutoff = now - 5000;
+      for (const [storedKey, at] of this.lastVisualEffectAt.entries()) {
+        if (at < cutoff) this.lastVisualEffectAt.delete(storedKey);
+      }
+    }
+    return true;
+  }
+
+  drawHealthRing(x, y, avatarR, player, detail) {
     const ctx = this.ctx;
     const maxHp = Math.max(1, player.maxSeenHP || player.hp || 1);
     const ratio = clamp(player.hp / maxHp, 0, 1);
-    const ringRadius = r * (detail === "ultra" ? 1.04 : 1.1);
-    const baseWidth = Math.max(2, Math.min(9, r * (detail === "ultra" ? 0.035 : 0.055)));
+    const baseWidth = Math.max(2, Math.min(8, avatarR * (detail === "ultra" ? 0.08 : 0.11)));
     const width = baseWidth * 2;
+    const ringRadius = avatarR + width * 0.75;
     const auraColor = this.getAuraColor(player);
 
     ctx.save();

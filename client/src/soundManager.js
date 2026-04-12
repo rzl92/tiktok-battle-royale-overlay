@@ -31,6 +31,7 @@ export class SoundManager {
     this.lastHitAt = 0;
     this.lastWhooshAt = 0;
     this.lastLaserAt = 0;
+    this.lastHealAt = 0;
     this.activeOneShots = 0;
   }
 
@@ -124,6 +125,9 @@ export class SoundManager {
   }
 
   power(big) {
+    const now = performance.now();
+    if (now - this.lastHealAt < 90) return;
+    this.lastHealAt = now;
     this.playRandom("healPickup", { volume: big ? 0.22 : 0.18, rate: big ? 0.92 : 1.04 });
     if (big) this.playRandom("ultimateImpact", { volume: 0.12, rate: 1.25, delay: 0.16 });
   }

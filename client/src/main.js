@@ -21,6 +21,23 @@ statusDot.style.zIndex = "9999";
 statusDot.title = "Connection Status";
 document.body.appendChild(statusDot);
 
+const joinLog = document.createElement("div");
+joinLog.style.position = "fixed";
+joinLog.style.top = "18px";
+joinLog.style.left = "18px";
+joinLog.style.background = "rgba(0,0,0,0.72)";
+joinLog.style.color = "#85ff9c";
+joinLog.style.padding = "10px 16px";
+joinLog.style.borderRadius = "5px";
+joinLog.style.fontFamily = "monospace";
+joinLog.style.fontSize = "14px";
+joinLog.style.fontWeight = "800";
+joinLog.style.zIndex = "10000";
+joinLog.style.opacity = "0";
+joinLog.style.transition = "opacity 120ms ease";
+document.body.appendChild(joinLog);
+let joinLogTimer = null;
+
 console.log("Initializing Socket.IO to:", socketUrl);
 
 const socket = io(socketUrl, {
@@ -46,19 +63,12 @@ socket.on("connect_error", (err) => {
 
 socket.on("debug", (msg) => {
   console.log("Server log:", msg);
-  const notification = document.createElement("div");
-  notification.style.position = "fixed";
-  notification.style.bottom = "20px";
-  notification.style.left = "20px";
-  notification.style.background = "rgba(0,0,0,0.8)";
-  notification.style.color = "#00ff00";
-  notification.style.padding = "10px 20px";
-  notification.style.borderRadius = "5px";
-  notification.style.fontFamily = "monospace";
-  notification.style.zIndex = "10000";
-  notification.textContent = msg;
-  document.body.appendChild(notification);
-  setTimeout(() => notification.remove(), 3000);
+  joinLog.textContent = msg;
+  joinLog.style.opacity = "1";
+  clearTimeout(joinLogTimer);
+  joinLogTimer = setTimeout(() => {
+    joinLog.style.opacity = "0";
+  }, 2200);
 });
 
 const sound = new SoundManager();

@@ -90,7 +90,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
       x: result.player.x,
       y: result.player.y
     });
-    battleEngine.io.emit("debug", `Join ${result.player.username} via ${req.path}`);
+    battleEngine.io.emit("debug", `${result.player.username} join battle`);
 
     res.json(successPayload("join", input, result, event, battleEngine, playerManager));
   });

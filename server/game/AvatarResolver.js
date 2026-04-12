@@ -1,12 +1,12 @@
 const TIKTOK_PROFILE_BASE = "https://www.tiktok.com/@";
 const FETCH_TIMEOUT_MS = 8000;
-const FALLBACK_TTL_MS = 60 * 60 * 1000; // 1 hour fallback if no expiry found
-const MIN_TTL_MS = 5 * 60 * 1000;       // re-fetch if less than 5 minutes left
+const FALLBACK_TTL_MS = 60 * 60 * 1000;
+const NEGATIVE_TTL_MS = 10 * 60 * 1000;
+const MIN_TTL_MS = 5 * 60 * 1000;
 
 export class AvatarResolver {
   constructor() {
     this.manualAvatars = new Map();
-    // key -> { url, expiresAt }
     this.fetchCache = new Map();
     this.pendingFetches = new Set();
   }
@@ -35,7 +35,6 @@ export class AvatarResolver {
     return null;
   }
 
-  // Fire-and-forget: scrape TikTok profile in background
   async fetchAndStore(username) {
     const key = normalizeKey(username);
     if (!key) return;
@@ -48,26 +47,19 @@ export class AvatarResolver {
     this.pendingFetches.add(key);
     try {
       const result = await fetchTikTokAvatarUrl(username);
-      if (result) {
-        this.fetchCache.set(key, result); // { url, expiresAt }
-      }
+      this.fetchCache.set(key, result || { url: null, expiresAt: Date.now() + FALLBACK_TTL_MS });
     } catch {
-      // silently ignore — overlay keeps working with placeholder
+      this.fetchCache.set(key, { url: null, expiresAt: Date.now() + NEGATIVE_TTL_MS });
     } finally {
       this.pendingFetches.delete(key);
     }
   }
-
 }
 
-// Scrape the TikTok profile page and extract an avatar URL.
-// Tries multiple strategies to handle different page structures TikTok serves.
 async function fetchTikTokAvatarUrl(username) {
   const html = await fetchProfileHtml(username);
   if (!html) return null;
 
-  // Strategy 1: regex scan for avatar field names embedded in JSON blobs
-  // TikTok embeds user data in multiple formats depending on region/A-B tests
   for (const field of ["avatarLarger", "avatarMedium", "avatarThumb"]) {
     const match = html.match(new RegExp(`"${field}":"([^"]+)"`));
     if (match) {
@@ -76,22 +68,21 @@ async function fetchTikTokAvatarUrl(username) {
     }
   }
 
-  // Strategy 2: parse SIGI_STATE (newer TikTok page structure used in many regions)
   const sigiMatch = html.match(/<script id="SIGI_STATE"[^>]*>(\{.+?\})<\/script>/s);
   if (sigiMatch) {
     try {
       const state = JSON.parse(sigiMatch[1]);
-      // User data lives under UserModule.users or UserPage.uniqueId keyed objects
       const users = state?.UserModule?.users || state?.ItemModule || {};
       for (const key of Object.keys(users)) {
-        const u = users[key];
-        const url = u?.avatarLarger || u?.avatarMedium || u?.avatarThumb || u?.author?.avatarLarger;
+        const user = users[key];
+        const url = user?.avatarLarger || user?.avatarMedium || user?.avatarThumb || user?.author?.avatarLarger;
         if (url && url.startsWith("https://")) return { url, expiresAt: extractExpiry(url) };
       }
-    } catch { /* malformed JSON, continue */ }
+    } catch {
+      // Continue with CDN fallback.
+    }
   }
 
-  // Strategy 3: look for any TikTok CDN image URL referencing a profile picture
   const cdnMatch = html.match(/"(https:\/\/p[0-9]+-sign\.tiktokcdn(?:-us)?\.com\/tos-[^"]{20,}\.(?:jpeg|jpg|webp)[^"]*?)"/);
   if (cdnMatch) {
     const url = decodeEscapes(cdnMatch[1]);
@@ -137,16 +128,15 @@ function decodeEscapes(str) {
   );
 }
 
-// Extract x-expires unix timestamp from signed TikTok CDN URL
 function extractExpiry(url) {
   try {
     const match = url.match(/[?&]x-expires=(\d+)/);
     if (match) {
       const expSec = Number(match[1]);
-      if (expSec > 1e9) return expSec * 1000; // convert seconds → ms
+      if (expSec > 1e9) return expSec * 1000;
     }
   } catch {
-    // ignore
+    // Use fallback TTL below.
   }
   return Date.now() + FALLBACK_TTL_MS;
 }

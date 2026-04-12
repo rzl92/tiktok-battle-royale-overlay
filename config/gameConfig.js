@@ -17,7 +17,10 @@ export const gameConfig = {
     },
     damage(hp, classConfig) {
       const baseDamage = hp <= 100 ? 1 : 2 + Math.floor(Math.max(0, hp - 101) / 100);
-      return Math.max(1, Math.floor(baseDamage * classConfig.damageMultiplier));
+      const gearBlades = hp <= 25 ? 0 : Math.min(10, 2 + Math.floor(Math.max(0, hp - 26) / 100));
+      const gearBonus = gearBlades <= 0 ? 0.78 : 1 + (gearBlades - 2) * 0.12;
+      const hpPressure = 1 + Math.min(hp / 5000, 0.8);
+      return Math.max(1, Math.floor(baseDamage * gearBonus * hpPressure * classConfig.damageMultiplier));
     },
     attackRange(radius, classConfig) {
       // Base = touching distance for two equal tops (2*radius).
@@ -25,8 +28,8 @@ export const gameConfig = {
       return Math.floor(radius * 2 + classConfig.attackRange * 0.28);
     },
     moveSpeed(classConfig, hp) {
-      const giantPenalty = Math.min(hp / 7000, 0.7);
-      return Math.max(28, classConfig.speed * (1 - giantPenalty));
+      const giantPenalty = Math.min(hp / 9000, 0.55);
+      return Math.max(42, classConfig.speed * (1 - giantPenalty));
     }
   },
   aura: {
@@ -37,23 +40,23 @@ export const gameConfig = {
     ]
   },
   combat: {
-    targetScanIntervalMs: 200,
+    targetScanIntervalMs: 160,
     attackCooldownMs: 650,
     maxPlayers: 200,
-    idleWanderTurnChance: 0.03,
+    idleWanderTurnChance: 0.055,
     giantSlayerBonusHpStep: 500,
     giantSlayerMaxBonus: 12
   },
   physics: {
-    friction: 0.988,
-    steering: 0.075,
-    orbitStrength: 0.34,
+    friction: 0.984,
+    steering: 0.105,
+    orbitStrength: 0.46,
     collisionBounce: 0.92,
     collisionPush: 0.72,
     hitKnockback: 190,
     attackerRecoil: 55,
-    maxVelocity: 580,
-    spinJitter: 0.022,
+    maxVelocity: 760,
+    spinJitter: 0.04,
     collisionCellSize: 280
   },
   laser: {
@@ -84,7 +87,7 @@ export const gameConfig = {
       accent: "#e8fbff",
       damageTakenMultiplier: 1,
       damageMultiplier: 1,
-      speed: 120,
+      speed: 150,
       attackRange: 64,
       attackCooldownMultiplier: 1,
       ability: "Balanced duelist"
@@ -94,7 +97,7 @@ export const gameConfig = {
       accent: "#eaffef",
       damageTakenMultiplier: 0.78,
       damageMultiplier: 0.82,
-      speed: 84,
+      speed: 112,
       attackRange: 58,
       attackCooldownMultiplier: 1.08,
       ability: "Hard to eliminate"
@@ -104,7 +107,7 @@ export const gameConfig = {
       accent: "#fff0f4",
       damageTakenMultiplier: 1.12,
       damageMultiplier: 1.22,
-      speed: 172,
+      speed: 215,
       attackRange: 72,
       attackCooldownMultiplier: 0.72,
       ability: "Fast strikes"
@@ -114,7 +117,7 @@ export const gameConfig = {
       accent: "#fff6df",
       damageTakenMultiplier: 0.96,
       damageMultiplier: 1.15,
-      speed: 126,
+      speed: 160,
       attackRange: 66,
       attackCooldownMultiplier: 0.94,
       ability: "Scales hard with HP"
@@ -124,7 +127,7 @@ export const gameConfig = {
       accent: "#f8efff",
       damageTakenMultiplier: 1.04,
       damageMultiplier: 1.06,
-      speed: 108,
+      speed: 140,
       attackRange: 168,
       attackCooldownMultiplier: 1.2,
       ability: "Ranged burst"
