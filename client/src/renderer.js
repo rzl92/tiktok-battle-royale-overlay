@@ -250,6 +250,7 @@ export class Renderer {
 
     if (profile.blades <= 0) {
       this.drawBareTop(x, y, r, player, spin, showName);
+      if (r > 14 && (detail === "high" || showName)) this.drawAvatar(player, x, y, r * 0.52);
       return;
     }
 
@@ -345,8 +346,15 @@ export class Renderer {
     ctx.fillStyle = player.color;
     ctx.strokeStyle = "#061016";
     ctx.lineWidth = Math.max(2, r * 0.055);
+    for (let i = 0; i < 3; i += 1) {
+      const a = (i / 3) * TWO_PI;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * r * 0.72, Math.sin(a) * r * 0.72, r * 0.12, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+    }
     ctx.beginPath();
-    ctx.ellipse(0, 0, r * 0.86, r * 0.72, 0, 0, TWO_PI);
+    ctx.arc(0, 0, r * 0.82, 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
 
@@ -389,8 +397,15 @@ export class Renderer {
       ctx.fillStyle = player.color;
       ctx.strokeStyle = "#061016";
       ctx.lineWidth = Math.max(1.5, r2 * 0.055);
+      for (let i = 0; i < 3; i += 1) {
+        const a = (i / 3) * TWO_PI;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * r2 * 0.72, Math.sin(a) * r2 * 0.72, r2 * 0.12, 0, TWO_PI);
+        ctx.fill();
+        ctx.stroke();
+      }
       ctx.beginPath();
-      ctx.ellipse(0, 0, r2 * 0.86, r2 * 0.72, 0, 0, TWO_PI);
+      ctx.arc(0, 0, r2 * 0.82, 0, TWO_PI);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = player.accent;
@@ -746,8 +761,8 @@ export class Renderer {
         ctx.arc(point.x, point.y, 14 + 44 * (1 - t), -0.75, 0.9);
         ctx.stroke();
 
-        ctx.fillStyle = `rgba(255, 241, 168, ${t})`;
-        ctx.font = "900 23px system-ui";
+        ctx.fillStyle = `rgba(255, 63, 82, ${t})`;
+        ctx.font = "500 22px system-ui";
         ctx.textAlign = "center";
         ctx.fillText(`-${effect.damage}`, point.x, point.y - 26 * (1 - t));
       }
