@@ -321,8 +321,11 @@ export class Renderer {
   drawPlayerHeader(player, x, y, r, isCrowned, showName) {
     const ctx = this.ctx;
     const wins = player.wins ?? player.kills ?? 0;
-    const nameY = y - r - (isCrowned ? 28 : 18);
-    const winsY = y - r - 5;
+    const crownBottom = y - r - Math.max(26, r * 0.28);
+    const nameFont = Math.max(10, Math.min(16, r * 0.17));
+    const winsFont = Math.max(9, Math.min(14, r * 0.15));
+    const nameY = isCrowned ? crownBottom + nameFont * 0.9 : y - r - nameFont * 1.9;
+    const winsY = nameY + winsFont * 1.15;
 
     if (isCrowned) this.drawCrown(x, y, r);
     if (!showName && !isCrowned && r < 24) return;
@@ -332,14 +335,14 @@ export class Renderer {
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
 
-    ctx.font = `900 ${Math.max(9, Math.min(15, r * 0.16))}px system-ui`;
+    ctx.font = `900 ${nameFont}px system-ui`;
     ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
     ctx.lineWidth = Math.max(3, r * 0.045);
     ctx.fillStyle = "#ffffff";
     ctx.strokeText(trimName(player.username), x, nameY);
     ctx.fillText(trimName(player.username), x, nameY);
 
-    ctx.font = `900 ${Math.max(9, Math.min(14, r * 0.15))}px system-ui`;
+    ctx.font = `900 ${winsFont}px system-ui`;
     ctx.fillStyle = "#ffe45c";
     ctx.strokeText(`${wins} Wins`, x, winsY);
     ctx.fillText(`${wins} Wins`, x, winsY);
@@ -350,7 +353,8 @@ export class Renderer {
     const ctx = this.ctx;
     const width = Math.max(22, r * 0.62);
     const height = Math.max(13, r * 0.28);
-    const top = y - r - height - 38;
+    const bottom = y - r - Math.max(26, r * 0.28);
+    const top = bottom - height;
     ctx.save();
     ctx.shadowColor = "rgba(255, 216, 77, 0.78)";
     ctx.shadowBlur = Math.max(8, r * 0.16);
@@ -724,12 +728,12 @@ export class Renderer {
   drawAvatarStats(player, x, y, r) {
     if (r < 12) return;
     const ctx = this.ctx;
-    const hpText = formatCompact(player.hp);
+    const hpText = `${formatCompact(player.hp)} HP`;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    ctx.font = `900 ${Math.max(12, Math.min(28, r * 0.42))}px system-ui`;
+    ctx.font = `900 ${Math.max(12, Math.min(30, r * 0.34))}px system-ui`;
     ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
     ctx.lineWidth = Math.max(3, r * 0.09);
     ctx.fillStyle = "#ffffff";
