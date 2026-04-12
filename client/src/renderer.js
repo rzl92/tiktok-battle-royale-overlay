@@ -240,9 +240,8 @@ export class Renderer {
     const avatarR = r * 0.5;
 
     this.drawSingleGear(x, y, r, player, spin);
-    this.drawAvatar(player, x, y, avatarR);
+    this.drawAvatar(player, x, y, avatarR, isCrowned);
     this.drawHealthRing(x, y, avatarR, player, detail);
-    this.drawPlayerHeader(player, x, y, r, isCrowned, showName || detail === "high");
   }
 
   allowVisualEffect(key, minMs) {
@@ -313,63 +312,6 @@ export class Renderer {
     ctx.fillStyle = hexToRgba(player.accent, 0.72);
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.62, 0, TWO_PI);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  drawPlayerHeader(player, x, y, r, isCrowned, showName) {
-    const ctx = this.ctx;
-    const wins = player.wins ?? player.kills ?? 0;
-    const crownBottom = y - r - Math.max(26, r * 0.28);
-    const nameFont = Math.max(10, Math.min(16, r * 0.17));
-    const winsFont = Math.max(9, Math.min(14, r * 0.15));
-    const nameY = isCrowned ? crownBottom + nameFont * 0.9 : y - r - nameFont * 1.9;
-    const winsY = nameY + winsFont * 1.15;
-
-    if (isCrowned) this.drawCrown(x, y, r);
-    if (!showName && !isCrowned && r < 24) return;
-
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineJoin = "round";
-
-    ctx.font = `900 ${nameFont}px system-ui`;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
-    ctx.lineWidth = Math.max(3, r * 0.045);
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeText(trimName(player.username), x, nameY);
-    ctx.fillText(trimName(player.username), x, nameY);
-
-    ctx.font = `900 ${winsFont}px system-ui`;
-    ctx.fillStyle = "#ffe45c";
-    ctx.strokeText(`${wins} Wins`, x, winsY);
-    ctx.fillText(`${wins} Wins`, x, winsY);
-    ctx.restore();
-  }
-
-  drawCrown(x, y, r) {
-    const ctx = this.ctx;
-    const width = Math.max(22, r * 0.62);
-    const height = Math.max(13, r * 0.28);
-    const bottom = y - r - Math.max(26, r * 0.28);
-    const top = bottom - height;
-    ctx.save();
-    ctx.shadowColor = "rgba(255, 216, 77, 0.78)";
-    ctx.shadowBlur = Math.max(8, r * 0.16);
-    ctx.fillStyle = "#ffd84d";
-    ctx.strokeStyle = "#4a2d00";
-    ctx.lineWidth = Math.max(1.5, r * 0.035);
-    ctx.beginPath();
-    ctx.moveTo(x - width / 2, top + height);
-    ctx.lineTo(x - width * 0.34, top + height * 0.36);
-    ctx.lineTo(x - width * 0.12, top + height * 0.72);
-    ctx.lineTo(x, top);
-    ctx.lineTo(x + width * 0.12, top + height * 0.72);
-    ctx.lineTo(x + width * 0.34, top + height * 0.36);
-    ctx.lineTo(x + width / 2, top + height);
-    ctx.closePath();
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -725,20 +667,64 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawAvatarStats(player, x, y, r) {
+  drawAvatarStats(player, x, y, r, isCrowned = false) {
     if (r < 12) return;
     const ctx = this.ctx;
+    const wins = player.wins ?? player.kills ?? 0;
     const hpText = `${formatCompact(player.hp)} HP`;
+    const nameFont = Math.max(8, Math.min(15, r * 0.18));
+    const winsFont = Math.max(7, Math.min(13, r * 0.16));
+    const hpFont = Math.max(13, Math.min(34, r * 0.34));
+    const nameY = y - r * (isCrowned ? 0.32 : 0.42);
+    const winsY = nameY + winsFont * 1.15;
+    const hpY = y + r * 0.3;
+
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    ctx.font = `900 ${Math.max(12, Math.min(30, r * 0.34))}px system-ui`;
+
+    if (isCrowned) this.drawAvatarCrown(x, y - r * 0.62, r);
+
     ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
-    ctx.lineWidth = Math.max(3, r * 0.09);
+    ctx.lineWidth = Math.max(2.5, r * 0.07);
     ctx.fillStyle = "#ffffff";
-    ctx.strokeText(hpText, x, y);
-    ctx.fillText(hpText, x, y);
+    ctx.font = `900 ${nameFont}px system-ui`;
+    ctx.strokeText(trimName(player.username), x, nameY);
+    ctx.fillText(trimName(player.username), x, nameY);
+
+    ctx.fillStyle = "#ffe45c";
+    ctx.font = `900 ${winsFont}px system-ui`;
+    ctx.strokeText(`${wins} Wins`, x, winsY);
+    ctx.fillText(`${wins} Wins`, x, winsY);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `900 ${hpFont}px system-ui`;
+    ctx.lineWidth = Math.max(3, r * 0.085);
+    ctx.strokeText(hpText, x, hpY);
+    ctx.fillText(hpText, x, hpY);
+    ctx.restore();
+  }
+
+  drawAvatarCrown(x, y, r) {
+    const ctx = this.ctx;
+    const width = Math.max(16, r * 0.64);
+    const height = Math.max(8, r * 0.24);
+    ctx.save();
+    ctx.fillStyle = "#ffd84d";
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.lineWidth = Math.max(1.5, r * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(x - width / 2, y + height / 2);
+    ctx.lineTo(x - width * 0.32, y - height * 0.2);
+    ctx.lineTo(x - width * 0.12, y + height * 0.16);
+    ctx.lineTo(x, y - height / 2);
+    ctx.lineTo(x + width * 0.12, y + height * 0.16);
+    ctx.lineTo(x + width * 0.32, y - height * 0.2);
+    ctx.lineTo(x + width / 2, y + height / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -769,7 +755,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawAvatar(player, x, y, r) {
+  drawAvatar(player, x, y, r, isCrowned = false) {
     const ctx = this.ctx;
     const image = this.getImage(player.avatarUrl);
     ctx.save();
@@ -790,8 +776,10 @@ export class Renderer {
       ctx.textBaseline = "middle";
       ctx.fillText(player.username.slice(0, 1).toUpperCase(), x, y);
     }
+    ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
     ctx.restore();
-    this.drawAvatarStats(player, x, y, r);
+    this.drawAvatarStats(player, x, y, r, isCrowned);
   }
 
   drawNameplate(player, x, y, r) {
