@@ -11,6 +11,8 @@
     "desktop": "electron desktop/main.js",
     "desktop:build": "electron-builder --win dir",
     "desktop:portable": "electron-builder --win portable",
+    "desktop:installer": "electron-builder --win nsis",
+    "desktop:release": "electron-builder --win --publish always",
     "build:portable": "powershell -ExecutionPolicy Bypass -File scripts/build-portable.ps1",
     "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "check": "node --check server/index.js && node --check server/createApp.js && node --check server/game/BattleEngine.js && node --check server/game/PlayerManager.js && node --check server/game/AvatarResolver.js && node --check server/routes/webhooks.js && node --check desktop/main.js && node --check client/src/main.js && node --check client/src/renderer.js && node --check client/src/simulator.js && node --check client/src/uiManager.js"
@@ -28,6 +30,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "electron-updater": "^6.8.3",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "socket.io": "^4.8.1"
@@ -50,12 +53,27 @@
     ],
     "win": {
       "target": [
-        "portable"
+        "portable",
+        "nsis"
       ],
       "signAndEditExecutable": false
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "rzl92",
+      "repo": "tiktok-battle-royale-overlay"
     }
   }
 }

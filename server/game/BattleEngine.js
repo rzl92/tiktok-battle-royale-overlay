@@ -1,8 +1,9 @@
 export class BattleEngine {
-  constructor({ io, playerManager, config }) {
+  constructor({ io, playerManager, config, transparent = false }) {
     this.io = io;
     this.playerManager = playerManager;
     this.config = config;
+    this.transparent = transparent;
     this.events = [];
     this.roundWinner = null;
     this.resetAt = 0;
@@ -98,6 +99,11 @@ export class BattleEngine {
   }
 
   findTarget(player, players) {
+    const highestHpTarget = players
+      .filter((candidate) => candidate.id !== player.id && candidate.alive)
+      .sort((a, b) => b.hp - a.hp)[0];
+    if (highestHpTarget && player.hp < highestHpTarget.hp) return highestHpTarget;
+
     let best = null;
     let bestScore = Infinity;
     let randomPick = null;
@@ -239,42 +245,32 @@ export class BattleEngine {
     }
     caster.lastUltimateAt = now;
 
-    const { rayCount, maxRange, damageMult } = this.config.ultimate;
+    const { rayCount, maxRange, damageMult, dashForce } = this.config.ultimate;
     const damage = Math.max(1, Math.round(caster.damage * damageMult));
     const enemies = this.playerManager.getAlivePlayers().filter((p) => p.id !== caster.id);
-    // slight sector overlap so no blind spots between rays
-    const halfSector = (Math.PI / rayCount) * 1.25;
-    const alreadyHit = new Set();
     const rays = [];
+    const range = Math.max(maxRange, Math.hypot(this.config.arena.width, this.config.arena.height));
+    const dashAngle = Math.random() * Math.PI * 2;
+    caster.vx += Math.cos(dashAngle) * (dashForce || 0);
+    caster.vy += Math.sin(dashAngle) * (dashForce || 0);
+    this.capVelocity(caster);
 
-    for (let i = 0; i < rayCount; i++) {
+    for (const enemy of enemies) {
+      const dx = enemy.x - caster.x;
+      const dy = enemy.y - caster.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const nx = dx / dist;
+      const ny = dy / dist;
+      rays.push({ angle: Math.atan2(dy, dx), length: dist, hit: true });
+      this.damagePlayer({ attacker: caster, target: enemy, damage, type: "ultimate" });
+      enemy.vx += nx * 360;
+      enemy.vy += ny * 360;
+      this.capVelocity(enemy);
+    }
+
+    for (let i = rays.length; i < rayCount; i += 1) {
       const angle = (i / rayCount) * Math.PI * 2;
-      const nx = Math.cos(angle);
-      const ny = Math.sin(angle);
-
-      // Closest enemy within this ray's sector
-      let closestDist = maxRange;
-      let hitPlayer = null;
-      for (const player of enemies) {
-        if (alreadyHit.has(player.id)) continue;
-        const dx = player.x - caster.x;
-        const dy = player.y - caster.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < 1 || dist > maxRange) continue;
-        const dot = (dx * nx + dy * ny) / dist;
-        if (dot < Math.cos(halfSector)) continue;
-        if (dist < closestDist) {
-          closestDist = dist;
-          hitPlayer = player;
-        }
-      }
-
-      rays.push({ angle, length: hitPlayer ? closestDist : maxRange, hit: !!hitPlayer });
-
-      if (hitPlayer) {
-        alreadyHit.add(hitPlayer.id);
-        this.damagePlayer({ attacker: caster, target: hitPlayer, damage, type: "ultimate" });
-      }
+      rays.push({ angle, length: range, hit: false });
     }
 
     this.pushEvent({
@@ -286,12 +282,12 @@ export class BattleEngine {
       rays
     });
 
-    return { ok: true, player: caster, eliminated: alreadyHit.size };
+    return { ok: true, player: caster, eliminated: enemies.length };
   }
 
   eliminate(target, killer, cause) {
     if (!target.alive) return;
-    killer.kills += 1;
+    this.playerManager.addWin(killer);
     this.playerManager.removeDead(target);
     this.pushEvent({
       type: "death",
@@ -310,7 +306,8 @@ export class BattleEngine {
       const resetMs = Math.max(0, Number(this.config.round?.resetSeconds || 0) * 1000);
       this.roundWinner = {
         username: winner.username,
-        kills: winner.kills,
+        kills: winner.wins || winner.kills,
+        wins: winner.wins || winner.kills,
         className: winner.className,
         hp: Math.max(0, Math.floor(winner.hp)),
         avatarUrl: winner.avatarUrl || null
@@ -327,6 +324,20 @@ export class BattleEngine {
     this.resetAt = 0;
     this.peakPlayerCount = 0;
     return event;
+  }
+
+  getRoundSettings() {
+    return {
+      resetSeconds: Math.max(0, Number(this.config.round?.resetSeconds || 0))
+    };
+  }
+
+  setRoundResetSeconds(seconds) {
+    const value = clamp(Math.round(Number(seconds)), 0, 120);
+    if (!this.config.round) this.config.round = {};
+    this.config.round.resetSeconds = value;
+    this.io.emit("config", { config: this.config, transparent: this.transparent });
+    return this.getRoundSettings();
   }
 
   wander(player, dt) {
@@ -477,12 +488,37 @@ export class BattleEngine {
   getSnapshot() {
     const players = this.playerManager.getAlivePlayers();
     const publicPlayers = players.map((player) => publicPlayer(player));
+    const aliveByKey = new Map(players.map((player, index) => [player.key, publicPlayers[index]]));
+    const recordEntries = this.playerManager.getRecords().map((record) => {
+      const alive = aliveByKey.get(record.key);
+      if (alive) return alive;
+      return {
+        id: null,
+        username: record.username,
+        className: record.className,
+        hp: 0,
+        maxSeenHP: 1,
+        kills: record.wins,
+        wins: record.wins,
+        x: 0,
+        y: 0,
+        radius: 0,
+        sizeScale: 1,
+        damage: 0,
+        attackRange: 0,
+        auraLevel: 0,
+        avatarUrl: record.avatarUrl || null,
+        color: this.config.classes[record.className]?.color || "#ffffff",
+        accent: this.config.classes[record.className]?.accent || "#ffffff",
+        alive: false
+      };
+    });
     return {
       now: Date.now(),
       players: publicPlayers,
-      leaderboard: publicPlayers
+      leaderboard: recordEntries
         .slice()
-        .sort((a, b) => b.kills - a.kills || b.hp - a.hp)
+        .sort((a, b) => b.wins - a.wins || b.hp - a.hp)
         .slice(0, this.config.leaderboard.limit),
       roundWinner: this.roundWinner,
       resetAt: this.resetAt
@@ -497,7 +533,8 @@ function publicPlayer(player) {
     className: player.className,
     hp: Math.max(0, Math.floor(player.hp)),
     maxSeenHP: Math.max(1, Math.floor(player.maxSeenHP)),
-    kills: player.kills,
+    kills: player.wins || player.kills || 0,
+    wins: player.wins || player.kills || 0,
     x: player.x,
     y: player.y,
     radius: player.radius,

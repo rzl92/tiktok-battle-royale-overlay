@@ -79,6 +79,7 @@ let latestState = { players: [], leaderboard: [] };
 
 socket.on("config", ({ config, transparent }) => {
   renderer.setConfig(config);
+  ui.setConfig(config);
   sound.setConfig(config.audio);
   if (transparent) root.classList.add("transparent");
 });

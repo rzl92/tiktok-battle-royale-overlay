@@ -347,6 +347,32 @@ body {
   text-align: center;
 }
 
+.settingsAction {
+  min-height: 34px;
+  border: 1px solid rgba(92, 240, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(92, 240, 255, 0.1);
+  color: #c6f8ff;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#roundResetStatus,
+#appMeta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+#appMeta {
+  padding-top: 12px;
+  text-align: center;
+  font-weight: 800;
+}
+
 /* ?? Winner banner ? compact ??????????????????????????????? */
 #winnerBanner {
   position: absolute;

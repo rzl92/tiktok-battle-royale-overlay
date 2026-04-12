@@ -2,6 +2,7 @@ import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import { createBattleServer } from "../server/createApp.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +21,7 @@ let simulatorWindow;
 async function startLocalServer() {
   ({ httpServer } = createBattleServer({
     rootDir,
+    dataDir: app.getPath("userData"),
     staticClient: true,
     transparent: false
   }));
@@ -104,14 +106,30 @@ function isLocalSimulatorUrl(url) {
   }
 }
 
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.on("error", (error) => console.warn("Auto-update error:", error.message));
+  autoUpdater.on("update-downloaded", () => {
+    console.log("Update downloaded; it will install when the app exits.");
+  });
+  autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+    console.warn("Auto-update check failed:", error.message);
+  });
+}
+
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("disable-background-timer-throttling");
+app.setAppUserModelId("com.rzl92.tiktokbattleroyaleoverlay");
 
 app.whenReady().then(async () => {
   await startLocalServer();
   createWindow();
+  setupAutoUpdater();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

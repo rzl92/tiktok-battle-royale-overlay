@@ -12,6 +12,7 @@ import { createWebhookRouter } from "./routes/webhooks.js";
 export function createBattleServer({
   rootDir,
   config = gameConfig,
+  dataDir = process.env.DATA_DIR || path.join(rootDir || process.cwd(), "data"),
   staticClient = false,
   transparent = false,
   tickRate = Number(process.env.TICK_RATE || 30),
@@ -40,8 +41,8 @@ export function createBattleServer({
     return next(err);
   });
 
-  const playerManager = new PlayerManager(config);
-  const battleEngine = new BattleEngine({ io, playerManager, config });
+  const playerManager = new PlayerManager(config, { dataDir });
+  const battleEngine = new BattleEngine({ io, playerManager, config, transparent });
 
   if (staticClient) {
     app.use("/assets", express.static(path.join(rootDir, "assets")));

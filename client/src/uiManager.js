@@ -35,6 +35,10 @@ export class UIManager {
     this.settingsButton = document.getElementById("settingsButton");
     this.settingsPanel = document.getElementById("settingsPanel");
     this.settingsClose = document.getElementById("settingsClose");
+    this.roundResetSeconds = document.getElementById("roundResetSeconds");
+    this.roundResetSave = document.getElementById("roundResetSave");
+    this.roundResetStatus = document.getElementById("roundResetStatus");
+    this.appMeta = document.getElementById("appMeta");
     this.backendUrl = getBackendUrl();
 
     this._currentWinner = null;
@@ -73,6 +77,10 @@ export class UIManager {
 
     this.settingsClose.addEventListener("click", () => {
       this.setSettingsOpen(false);
+    });
+
+    this.roundResetSave.addEventListener("click", () => {
+      this.saveRoundResetSeconds();
     });
 
     window.addEventListener("keydown", (event) => {
@@ -131,6 +139,39 @@ export class UIManager {
     document.getElementById("simulatorLink").href = simulatorUrl;
   }
 
+  setConfig(config) {
+    if (config?.round?.resetSeconds !== undefined) {
+      this.roundResetSeconds.value = Math.max(0, Number(config.round.resetSeconds) || 0);
+    }
+    if (config?.app) {
+      const version = config.app.version ? `v${escapeHtml(config.app.version)}` : "";
+      const credit = config.app.credit ? escapeHtml(config.app.credit) : "";
+      this.appMeta.innerHTML = [version, credit].filter(Boolean).join(" &middot; ");
+    }
+  }
+
+  async saveRoundResetSeconds() {
+    const seconds = Math.max(0, Math.min(120, Math.round(Number(this.roundResetSeconds.value) || 0)));
+    this.roundResetSeconds.value = seconds;
+    this.roundResetSave.disabled = true;
+    this.roundResetStatus.textContent = "Saving timer...";
+    try {
+      const response = await fetch(`${this.backendUrl || window.location.origin}/settings/round`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetSeconds: seconds })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Unable to save timer");
+      this.roundResetSeconds.value = data.resetSeconds;
+      this.roundResetStatus.textContent = `Reset timer saved: ${data.resetSeconds} seconds.`;
+    } catch (error) {
+      this.roundResetStatus.textContent = `Save failed: ${error.message}`;
+    } finally {
+      this.roundResetSave.disabled = false;
+    }
+  }
+
   setSettingsOpen(open) {
     this.settingsPanel.classList.toggle("open", open);
     this.settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
@@ -144,9 +185,9 @@ export class UIManager {
           <span class="rank">#${index + 1}</span>
           <span>
             <span class="boardName">${escapeHtml(entry.username)}</span>
-            <span class="boardMeta">${entry.hp} HP</span>
+            <span class="boardMeta">${formatCompact(entry.hp)} HP</span>
           </span>
-          <span class="boardKills">${entry.kills} P</span>
+          <span class="boardKills">${entry.wins ?? entry.kills ?? 0} Wins</span>
         `;
         return item;
       })
@@ -166,7 +207,7 @@ export class UIManager {
     const secondsLeft = resetAtNumber > 0
       ? Math.max(0, Math.ceil((resetAtNumber - Date.now()) / 1000))
       : null;
-    const renderKey = `${winner.username}:${winner.hp}:${winner.kills}:${secondsLeft}`;
+    const renderKey = `${winner.username}:${winner.hp}:${winner.wins ?? winner.kills}:${secondsLeft}`;
     if (renderKey !== this._winnerRenderKey) {
       this._winnerRenderKey = renderKey;
       this._renderWinnerBanner(winner, secondsLeft);
@@ -193,7 +234,7 @@ export class UIManager {
       <div class="winner-title">&#127942; Battle Winner</div>
       ${avatarHtml}
       <div class="winner-name">${escapeHtml(winner.username)}</div>
-      <div class="winner-meta">${winner.kills} kills &middot; ${winner.hp} HP remaining</div>
+      <div class="winner-meta">${winner.wins ?? winner.kills ?? 0} Wins &middot; ${formatCompact(winner.hp)} HP remaining</div>
       ${countdownHtml}
     `;
   }
@@ -210,4 +251,11 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function formatCompact(value) {
+  const number = Math.max(0, Math.floor(Number(value) || 0));
+  if (number < 1000) return String(number);
+  const compact = number / 1000;
+  return `${Number.isInteger(compact) ? compact.toFixed(0) : compact.toFixed(1)}K`;
 }

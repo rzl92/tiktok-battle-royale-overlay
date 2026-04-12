@@ -1,39 +1,48 @@
 import { AvatarResolver } from "./AvatarResolver.js";
+import fs from "node:fs";
+import path from "node:path";
 
 export class PlayerManager {
-  constructor(config) {
+  constructor(config, { dataDir = process.env.DATA_DIR || path.join(process.cwd(), "data") } = {}) {
     this.config = config;
     this.players = new Map();
+    this.records = new Map();
+    this.recordsFile = process.env.WINS_FILE || path.join(dataDir, "wins.json");
+    this.saveRecordsTimer = null;
     this.avatarResolver = new AvatarResolver();
     this.classNames = Object.keys(config.classes);
+    this.loadRecords();
   }
 
   join(username) {
     const cleanName = sanitizeUsername(username);
     if (!cleanName) return { player: null, created: false, error: "Missing username" };
 
-    const existing = this.players.get(cleanName.toLowerCase());
+    const key = cleanName.toLowerCase();
+    const record = this.getOrCreateRecord(cleanName);
+    const existing = this.players.get(key);
     if (existing && existing.alive) return { player: existing, created: false };
     if (existing && !existing.alive) {
-      this.players.delete(cleanName.toLowerCase());
+      this.players.delete(key);
     }
 
     if (this.getAlivePlayers().length >= this.config.combat.maxPlayers) {
       return { player: null, created: false, error: "Arena is full" };
     }
 
-    const className = this.pickClass(cleanName);
+    const className = record.className || this.pickClass(cleanName);
     const classConfig = this.config.classes[className];
     const hp = this.config.player.baseHP;
     const player = {
       id: makeId(cleanName),
       username: cleanName,
-      key: cleanName.toLowerCase(),
+      key,
       className,
       classConfig,
       hp,
       maxSeenHP: hp,
-      kills: 0,
+      kills: record.wins,
+      wins: record.wins,
       alive: true,
       x: rand(this.config.arena.safePadding, this.config.arena.width - this.config.arena.safePadding),
       y: rand(this.config.arena.safePadding + 120, this.config.arena.height - this.config.arena.safePadding),
@@ -48,6 +57,10 @@ export class PlayerManager {
       auraLevel: getAuraLevel(hp, this.config),
       avatarUrl: this.avatarResolver.resolve(cleanName)
     };
+    record.username = cleanName;
+    record.className = className;
+    record.avatarUrl = player.avatarUrl || record.avatarUrl || null;
+    this.scheduleSaveRecords();
     this.recalculateDerivedStats(player);
     this.players.set(player.key, player);
     return { player, created: true };
@@ -75,7 +88,11 @@ export class PlayerManager {
     const cleanName = sanitizeUsername(username);
     const url = this.avatarResolver.setManualAvatar(cleanName, avatarUrl);
     if (!url) return null;
-    const player = this.players.get(cleanName.toLowerCase());
+    const key = cleanName.toLowerCase();
+    const record = this.getOrCreateRecord(cleanName);
+    record.avatarUrl = url;
+    this.scheduleSaveRecords();
+    const player = this.players.get(key);
     if (player) player.avatarUrl = url;
     return url;
   }
@@ -86,9 +103,14 @@ export class PlayerManager {
     if (!cleanName) return;
     this.avatarResolver.fetchAndStore(cleanName).then(() => {
       const player = this.players.get(cleanName.toLowerCase());
+      const record = this.records.get(cleanName.toLowerCase());
+      const latest = this.avatarResolver.resolveLatest(cleanName);
+      if (record && latest) {
+        record.avatarUrl = latest;
+        this.scheduleSaveRecords();
+      }
       if (player) {
-        const url = this.avatarResolver.resolveLatest(cleanName);
-        if (url) player.avatarUrl = url;
+        if (latest) player.avatarUrl = latest;
       }
     }).catch(() => {});
   }
@@ -99,6 +121,23 @@ export class PlayerManager {
 
   getAlivePlayers() {
     return [...this.players.values()].filter((player) => player.alive);
+  }
+
+  addWin(player) {
+    if (!player) return 0;
+    const record = this.getOrCreateRecord(player.username);
+    record.wins += 1;
+    record.username = player.username;
+    record.className = player.className;
+    record.avatarUrl = player.avatarUrl || record.avatarUrl || null;
+    player.wins = record.wins;
+    player.kills = record.wins;
+    this.scheduleSaveRecords();
+    return record.wins;
+  }
+
+  getRecords() {
+    return [...this.records.values()].map((record) => ({ ...record }));
   }
 
   removeDead(player) {
@@ -126,6 +165,58 @@ export class PlayerManager {
     let hash = 0;
     for (const char of username) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
     return this.classNames[hash % this.classNames.length];
+  }
+
+  getOrCreateRecord(username) {
+    const cleanName = sanitizeUsername(username);
+    const key = cleanName.toLowerCase();
+    let record = this.records.get(key);
+    if (!record) {
+      record = {
+        key,
+        username: cleanName,
+        wins: 0,
+        className: this.pickClass(cleanName),
+        avatarUrl: this.avatarResolver.resolve(cleanName) || null
+      };
+      this.records.set(key, record);
+      this.scheduleSaveRecords();
+    }
+    return record;
+  }
+
+  loadRecords() {
+    try {
+      if (!fs.existsSync(this.recordsFile)) return;
+      const payload = JSON.parse(fs.readFileSync(this.recordsFile, "utf8"));
+      const records = Array.isArray(payload?.records) ? payload.records : [];
+      for (const item of records) {
+        const username = sanitizeUsername(item.username);
+        if (!username) continue;
+        const key = username.toLowerCase();
+        const className = this.config.classes[item.className] ? item.className : this.pickClass(username);
+        this.records.set(key, {
+          key,
+          username,
+          wins: Math.max(0, Math.floor(Number(item.wins) || 0)),
+          className,
+          avatarUrl: typeof item.avatarUrl === "string" ? item.avatarUrl : null
+        });
+      }
+    } catch (error) {
+      console.warn("Unable to load wins records:", error.message);
+    }
+  }
+
+  scheduleSaveRecords() {
+    clearTimeout(this.saveRecordsTimer);
+    this.saveRecordsTimer = setTimeout(() => {
+      const payload = JSON.stringify({ version: 1, records: this.getRecords() }, null, 2);
+      fs.promises
+        .mkdir(path.dirname(this.recordsFile), { recursive: true })
+        .then(() => fs.promises.writeFile(this.recordsFile, payload))
+        .catch((error) => console.warn("Unable to save wins records:", error.message));
+    }, 250);
   }
 }
 

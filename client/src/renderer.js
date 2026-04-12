@@ -146,12 +146,8 @@ export class Renderer {
   }
 
   updateCamera(dt) {
-    // Follow the leading player's interpolated (display) position at 60fps
-    const leaders = this.state.leaderboard || [];
-    const targetId = leaders[0]?.id;
-    const target = (targetId && this.displayPlayers.get(targetId))
-      || [...this.displayPlayers.values()].sort((a, b) => b.hp - a.hp)[0];
-    if (!target) return;
+    const arena = this.config?.arena || { width: 1080, height: 1920 };
+    const target = { x: arena.width / 2, y: arena.height / 2 };
     // Frame-rate-independent alpha: same feel at any fps
     const alpha = 1 - Math.pow(0.001, dt / 1800);
     this.camera.x += (target.x - this.camera.x) * alpha;
@@ -173,16 +169,17 @@ export class Renderer {
     ctx.drawImage(this.background, 0, 0, width, height);
 
     const sorted = [...displayPlayers].sort((a, b) => a.radius - b.radius);
+    const crownedId = this.state.leaderboard?.find((entry) => entry.id)?.id || null;
     const nameBudget = detail === "ultra" ? 3 : detail === "low" ? 5 : detail === "medium" ? 10 : 999;
     const featured = new Set(
       [...displayPlayers]
-        .sort((a, b) => b.kills - a.kills || b.hp - a.hp)
+        .sort((a, b) => (b.wins ?? b.kills ?? 0) - (a.wins ?? a.kills ?? 0) || b.hp - a.hp)
         .slice(0, nameBudget)
         .map((player) => player.id)
     );
 
     for (const player of sorted) {
-      this.drawTop(player, time, featured.has(player.id) || detail === "high", detail);
+      this.drawTop(player, time, featured.has(player.id) || detail === "high", detail, player.id === crownedId);
     }
 
     this.drawEffects(dt, detail);
@@ -234,7 +231,7 @@ export class Renderer {
     this.backgroundDirty = false;
   }
 
-  drawTop(player, time, showName, detail) {
+  drawTop(player, time, showName, detail, isCrowned = false) {
     const ctx = this.ctx;
     const screen = this.worldToScreen(player);
     const r = Math.max(10, player.radius * screen.scale);
@@ -256,7 +253,9 @@ export class Renderer {
 
     if (detail === "ultra") {
       this.drawFastTop(x, y, r, player, spin, showName);
+      if (showName) this.drawAvatar(player, x, y, avatarR);
       this.drawHealthRing(x, y, avatarR, player, detail);
+      if (isCrowned) this.drawCrown(x, y, r);
       return;
     }
 
@@ -264,6 +263,7 @@ export class Renderer {
       this.drawFastTop(x, y, r, player, spin, showName);
       if (showName) this.drawAvatar(player, x, y, avatarR);
       this.drawHealthRing(x, y, avatarR, player, detail);
+      if (isCrowned) this.drawCrown(x, y, r);
       return;
     }
 
@@ -271,6 +271,7 @@ export class Renderer {
       this.drawBareTop(x, y, r, player, spin, showName);
       if (showAvatar) this.drawAvatar(player, x, y, avatarR);
       this.drawHealthRing(x, y, avatarR, player, detail);
+      if (isCrowned) this.drawCrown(x, y, r);
       return;
     }
 
@@ -291,6 +292,7 @@ export class Renderer {
 
     if (showAvatar) this.drawAvatar(player, x, y, avatarR);
     this.drawHealthRing(x, y, avatarR, player, detail);
+    if (isCrowned) this.drawCrown(x, y, r);
     if (showName) this.drawNameplate(player, x, y, r);
   }
 
@@ -329,6 +331,31 @@ export class Renderer {
     ctx.lineWidth = width;
     ctx.beginPath();
     ctx.arc(x, y, ringRadius, -Math.PI / 2, -Math.PI / 2 + TWO_PI * ratio);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawCrown(x, y, r) {
+    const ctx = this.ctx;
+    const width = Math.max(22, r * 0.62);
+    const height = Math.max(13, r * 0.28);
+    const top = y - r * 0.84 - height;
+    ctx.save();
+    ctx.shadowColor = "rgba(255, 216, 77, 0.78)";
+    ctx.shadowBlur = Math.max(8, r * 0.16);
+    ctx.fillStyle = "#ffd84d";
+    ctx.strokeStyle = "#4a2d00";
+    ctx.lineWidth = Math.max(1.5, r * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(x - width / 2, top + height);
+    ctx.lineTo(x - width * 0.34, top + height * 0.36);
+    ctx.lineTo(x - width * 0.12, top + height * 0.72);
+    ctx.lineTo(x, top);
+    ctx.lineTo(x + width * 0.12, top + height * 0.72);
+    ctx.lineTo(x + width * 0.34, top + height * 0.36);
+    ctx.lineTo(x + width / 2, top + height);
+    ctx.closePath();
+    ctx.fill();
     ctx.stroke();
     ctx.restore();
   }
@@ -681,6 +708,29 @@ export class Renderer {
       ctx.stroke();
     }
     ctx.restore();
+    this.drawAvatarStats(player, x, y, r);
+  }
+
+  drawAvatarStats(player, x, y, r) {
+    if (r < 12) return;
+    const ctx = this.ctx;
+    const hpText = formatCompact(player.hp);
+    const winsText = `${player.wins ?? player.kills ?? 0} Wins`;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.48)";
+    roundRect(ctx, x - r * 0.82, y - r * 0.32, r * 1.64, r * 0.72, Math.min(8, r * 0.22));
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+    ctx.shadowBlur = 3;
+    ctx.font = `900 ${Math.max(10, Math.min(18, r * 0.36))}px system-ui`;
+    ctx.fillText(hpText, x, y - r * 0.08);
+    ctx.fillStyle = "#cdefff";
+    ctx.font = `800 ${Math.max(7, Math.min(12, r * 0.22))}px system-ui`;
+    ctx.fillText(winsText, x, y + r * 0.2);
+    ctx.restore();
   }
 
   drawShadow(x, y, r) {
@@ -751,7 +801,7 @@ export class Renderer {
     ctx.fillText(trimName(player.username), x, top + 10);
     ctx.fillStyle = "#b9c9d6";
     ctx.font = "800 10px system-ui";
-    ctx.fillText(`${player.hp} HP / ${player.kills} P`, x, top + 23);
+    ctx.fillText(`${formatCompact(player.hp)} HP / ${player.wins ?? player.kills ?? 0} Wins`, x, top + 23);
     ctx.restore();
   }
 
@@ -1269,6 +1319,13 @@ function hexToRgba(hex, alpha) {
 
 function trimName(name) {
   return name.length > 13 ? `${name.slice(0, 12)}.` : name;
+}
+
+function formatCompact(value) {
+  const number = Math.max(0, Math.floor(Number(value) || 0));
+  if (number < 1000) return String(number);
+  const compact = number / 1000;
+  return `${Number.isInteger(compact) ? compact.toFixed(0) : compact.toFixed(1)}K`;
 }
 
 function clamp(value, min, max) {

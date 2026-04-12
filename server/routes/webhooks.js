@@ -72,98 +72,110 @@ const AVATAR_PATHS = [
 export function createWebhookRouter({ playerManager, battleEngine }) {
   const router = express.Router();
   const debugRequests = [];
+  const queue = createActionQueue();
 
   router.all(["/webhook1", "/join", "/api/join"], (req, res) => {
-    const debugRecord = rememberDebugRequest(debugRequests, req);
-    const input = normalizeInput(req);
-    debugRecord.normalized = input.debug;
-    if (!assertValidUsername(input, res)) return;
+    queue.enqueue(res, () => {
+      const debugRecord = rememberDebugRequest(debugRequests, req);
+      const input = normalizeInput(req);
+      debugRecord.normalized = input.debug;
+      if (!assertValidUsername(input, res)) return;
 
-    const result = playerManager.join(input.username);
-    if (!result.player) return res.status(400).json(failurePayload("join", input, result.error));
+      const result = playerManager.join(input.username);
+      if (!result.player) return res.status(400).json(failurePayload("join", input, result.error));
 
-    applyAvatar(playerManager, input, result.player.username);
-    const event = battleEngine.pushEvent({
-      type: result.created ? "join" : "alreadyJoined",
-      playerId: result.player.id,
-      username: result.player.username,
-      x: result.player.x,
-      y: result.player.y
+      applyAvatar(playerManager, input, result.player.username);
+      let event = null;
+      if (result.created) {
+        event = battleEngine.pushEvent({
+          type: "join",
+          playerId: result.player.id,
+          username: result.player.username,
+          x: result.player.x,
+          y: result.player.y
+        });
+        battleEngine.io.emit("debug", `${result.player.username} join battle`);
+      }
+
+      res.json(successPayload("join", input, result, event, battleEngine, playerManager));
     });
-    battleEngine.io.emit("debug", `${result.player.username} join battle`);
-
-    res.json(successPayload("join", input, result, event, battleEngine, playerManager));
   });
 
   router.all(["/webhook2", "/gift", "/api/gift"], (req, res) => {
-    const debugRecord = rememberDebugRequest(debugRequests, req);
-    const input = normalizeInput(req);
-    debugRecord.normalized = input.debug;
-    if (!assertValidUsername(input, res, "gift")) return;
+    queue.enqueue(res, () => {
+      const debugRecord = rememberDebugRequest(debugRequests, req);
+      const input = normalizeInput(req);
+      debugRecord.normalized = input.debug;
+      if (!assertValidUsername(input, res, "gift")) return;
 
-    const result = playerManager.boost(input.username, input.coins);
-    if (!result.player) return res.status(400).json(failurePayload("gift", input, result.error));
+      const result = playerManager.boost(input.username, input.coins);
+      if (!result.player) return res.status(400).json(failurePayload("gift", input, result.error));
 
-    applyAvatar(playerManager, input, result.player.username);
-    const event = battleEngine.pushEvent({
-      type: "gift",
-      playerId: result.player.id,
-      username: result.player.username,
-      coins: result.coins,
-      bonus: result.bonus,
-      auraLeveled: result.auraLeveled,
-      x: result.player.x,
-      y: result.player.y
-    });
+      applyAvatar(playerManager, input, result.player.username);
+      const event = battleEngine.pushEvent({
+        type: "gift",
+        playerId: result.player.id,
+        username: result.player.username,
+        coins: result.coins,
+        bonus: result.bonus,
+        auraLeveled: result.auraLeveled,
+        x: result.player.x,
+        y: result.player.y
+      });
 
-    res.json({
-      ...successPayload("gift", input, result, event, battleEngine, playerManager),
-      coins: result.coins,
-      hpAdded: result.bonus,
-      auraLeveled: result.auraLeveled
+      res.json({
+        ...successPayload("gift", input, result, event, battleEngine, playerManager),
+        coins: result.coins,
+        hpAdded: result.bonus,
+        auraLeveled: result.auraLeveled
+      });
     });
   });
 
   router.all(["/webhook3", "/ultimate", "/api/ultimate"], (req, res) => {
-    const debugRecord = rememberDebugRequest(debugRequests, req);
-    const input = normalizeInput(req);
-    debugRecord.normalized = input.debug;
-    if (!assertValidUsername(input, res, "ultimate")) return;
+    queue.enqueue(res, () => {
+      const debugRecord = rememberDebugRequest(debugRequests, req);
+      const input = normalizeInput(req);
+      debugRecord.normalized = input.debug;
+      if (!assertValidUsername(input, res, "ultimate")) return;
 
-    applyAvatar(playerManager, input, input.username);
-    const result = battleEngine.triggerUltimate(input.username);
-    if (!result.ok && result.cooldownMs) {
-      return res.status(429).json({
-        ok: false,
+      applyAvatar(playerManager, input, input.username);
+      const result = battleEngine.triggerUltimate(input.username);
+      if (!result.ok && result.cooldownMs) {
+        return res.status(429).json({
+          ok: false,
+          action: "ultimate",
+          error: "Ultimate is on cooldown",
+          cooldownMs: result.cooldownMs,
+          player: summarize(result.player)
+        });
+      }
+      if (!result.ok) return res.status(400).json(failurePayload("ultimate", input, result.error));
+
+      res.json({
+        ok: true,
         action: "ultimate",
-        error: "Ultimate is on cooldown",
-        cooldownMs: result.cooldownMs,
+        usernameRaw: input.usernameRaw,
+        username: result.player.username,
+        eliminated: result.eliminated,
+        players: playerManager.getAlivePlayers().length,
+        socketClients: getSocketCount(battleEngine.io),
         player: summarize(result.player)
       });
-    }
-    if (!result.ok) return res.status(400).json(failurePayload("ultimate", input, result.error));
-
-    res.json({
-      ok: true,
-      action: "ultimate",
-      usernameRaw: input.usernameRaw,
-      username: result.player.username,
-      eliminated: result.eliminated,
-      players: playerManager.getAlivePlayers().length,
-      socketClients: getSocketCount(battleEngine.io),
-      player: summarize(result.player)
     });
   });
 
   router.all(["/webhook4", "/reset", "/api/reset"], (req, res) => {
-    const event = battleEngine.manualReset("manual");
-    res.json({
-      ok: true,
-      action: "reset",
-      message: "Arena reset",
-      eventId: event?.id || null,
-      players: playerManager.getAlivePlayers().length,
-      socketClients: getSocketCount(battleEngine.io)
+    queue.enqueue(res, () => {
+      const event = battleEngine.manualReset("manual");
+      res.json({
+        ok: true,
+        action: "reset",
+        message: "Arena reset",
+        eventId: event?.id || null,
+        players: playerManager.getAlivePlayers().length,
+        socketClients: getSocketCount(battleEngine.io)
+      });
     });
   });
 
@@ -178,14 +190,46 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.post("/avatar", (req, res) => {
-    const input = normalizeInput(req);
-    if (!assertValidUsername(input, res, "avatar")) return;
-    const avatarUrl = playerManager.setAvatar(input.username, input.avatarUrl);
-    if (!avatarUrl) return res.status(400).json(failurePayload("avatar", input, "Invalid avatarUrl"));
-    res.json({ ok: true, action: "avatar", username: input.username, avatarUrl });
+    queue.enqueue(res, () => {
+      const input = normalizeInput(req);
+      if (!assertValidUsername(input, res, "avatar")) return;
+      const avatarUrl = playerManager.setAvatar(input.username, input.avatarUrl);
+      if (!avatarUrl) return res.status(400).json(failurePayload("avatar", input, "Invalid avatarUrl"));
+      res.json({ ok: true, action: "avatar", username: input.username, avatarUrl });
+    });
+  });
+
+  router.get("/settings/round", (req, res) => {
+    res.json({ ok: true, action: "settings.round", ...battleEngine.getRoundSettings() });
+  });
+
+  router.post("/settings/round", (req, res) => {
+    queue.enqueue(res, () => {
+      const seconds = req.body?.resetSeconds ?? req.query?.resetSeconds ?? req.body?.seconds ?? req.query?.seconds;
+      const settings = battleEngine.setRoundResetSeconds(seconds);
+      res.json({ ok: true, action: "settings.round", ...settings });
+    });
   });
 
   return router;
+}
+
+function createActionQueue() {
+  let tail = Promise.resolve();
+  return {
+    enqueue(res, job) {
+      const run = tail.then(async () => {
+        if (!res.headersSent) await job();
+      });
+      tail = run.catch((error) => {
+        console.error("Webhook queue error:", error);
+        if (!res.headersSent) {
+          res.status(500).json({ ok: false, error: "Internal webhook queue error" });
+        }
+      });
+      return tail;
+    }
+  };
 }
 
 function normalizeInput(req) {
@@ -327,7 +371,8 @@ function summarize(player) {
     username: player.username,
     className: player.className,
     hp: Math.max(0, Math.floor(player.hp)),
-    kills: player.kills,
+    kills: player.wins || player.kills || 0,
+    wins: player.wins || player.kills || 0,
     auraLevel: player.auraLevel,
     avatarUrl: player.avatarUrl
   };

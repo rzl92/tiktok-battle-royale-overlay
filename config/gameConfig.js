@@ -7,8 +7,8 @@ export const gameConfig = {
   player: {
     baseHP: 25,
     giftHPPerCoin: 25,
-    baseRadius: 52,
-    maxRenderedRadius: 340,
+    baseRadius: 104,
+    maxRenderedRadius: 680,
     respawnInvulnerabilityMs: 1200
   },
   formulas: {
@@ -57,7 +57,7 @@ export const gameConfig = {
     attackerRecoil: 55,
     maxVelocity: 760,
     spinJitter: 0.04,
-    collisionCellSize: 280
+    collisionCellSize: 560
   },
   laser: {
     cooldownMs: 2200,
@@ -68,10 +68,15 @@ export const gameConfig = {
     cooldownMs: 0,
     rayCount: 16,
     maxRange: 950,
-    damageMult: 10
+    damageMult: 4,
+    dashForce: 660
   },
   round: {
     resetSeconds: Number(process.env.ROUND_RESET_SECONDS || 8)
+  },
+  app: {
+    version: "1.0.0",
+    credit: "created by rizaru.plays"
   },
   leaderboard: {
     limit: 3

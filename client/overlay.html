@@ -25,7 +25,15 @@
 
           <div class="settingsSection">
             <h3>Round Reset</h3>
-            <p>Winner countdown is controlled by the backend. Change <code>ROUND_RESET_SECONDS</code> in <code>.env</code>.</p>
+            <div class="countdownRow">
+              <label class="countdownDuration">
+                <span>Reset timer</span>
+                <input id="roundResetSeconds" type="number" min="0" max="120" step="1" value="8" />
+                <span>seconds</span>
+              </label>
+              <button id="roundResetSave" class="settingsAction" type="button">Save timer</button>
+              <p id="roundResetStatus">Timer follows backend config.</p>
+            </div>
           </div>
 
           <div class="settingsSection">
@@ -75,6 +83,8 @@
               <a href="/health" target="_blank" rel="noopener">Health Check</a>
             </div>
           </section>
+
+          <div id="appMeta"></div>
         </aside>
       </section>
       <div id="winnerBanner" hidden></div>
