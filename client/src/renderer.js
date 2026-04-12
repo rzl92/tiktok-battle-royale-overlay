@@ -901,7 +901,7 @@ export class Renderer {
     const boxW = textW + padding * 2;
     const boxH = fontSize + padding;
     const boxX = x - boxW / 2;
-    const boxY = y - r - boxH - 6;
+    const boxY = y - r - boxH + 2;
     ctx.fillStyle = "rgba(3, 8, 13, 0.72)";
     roundRect(ctx, boxX, boxY, boxW, boxH, 5);
     ctx.fill();
