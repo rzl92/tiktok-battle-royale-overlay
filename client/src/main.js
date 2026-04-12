@@ -1,6 +1,6 @@
-import { Renderer } from "./renderer.js?v=20260412-top-simple-4";
-import { SoundManager } from "./soundManager.js?v=20260412-top-simple-4";
-import { UIManager } from "./uiManager.js?v=20260412-top-simple-4";
+import { Renderer } from "./renderer.js?v=20260412-top-simple-5";
+import { SoundManager } from "./soundManager.js?v=20260412-top-simple-5";
+import { UIManager } from "./uiManager.js?v=20260412-top-simple-5";
 
 const canvas = document.getElementById("arena");
 const root = document.getElementById("overlayRoot");

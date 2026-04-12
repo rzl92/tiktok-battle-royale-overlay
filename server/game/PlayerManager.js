@@ -138,15 +138,14 @@ export class PlayerManager {
 
   async resetWins() {
     const alivePlayers = this.getAlivePlayers();
-    for (const record of this.records.values()) {
-      record.wins = 0;
-    }
+    const clearedRecords = this.records.size;
+    this.records.clear();
     for (const player of alivePlayers) {
       player.wins = 0;
       player.kills = 0;
     }
     await this.saveRecordsNow();
-    return { records: this.records.size, players: alivePlayers.length };
+    return { records: clearedRecords, players: alivePlayers.length };
   }
 
   getRecords() {

@@ -179,7 +179,7 @@ export class UIManager {
   }
 
   async resetAllWins() {
-    if (!window.confirm("Reset all player Wins to 0?")) return;
+    if (!window.confirm("Reset all player Wins and clear the leaderboard?")) return;
     this.resetWinsButton.disabled = true;
     this.resetWinsStatus.textContent = "Resetting Wins...";
     try {
@@ -189,7 +189,7 @@ export class UIManager {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "Unable to reset Wins");
-      this.resetWinsStatus.textContent = `Wins reset to 0 for ${data.records} players.`;
+      this.resetWinsStatus.textContent = `Wins reset and leaderboard cleared (${data.records} records).`;
     } catch (error) {
       this.resetWinsStatus.textContent = `Reset failed: ${error.message}`;
     } finally {
