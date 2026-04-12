@@ -232,68 +232,17 @@ export class Renderer {
   }
 
   drawTop(player, time, showName, detail, isCrowned = false) {
-    const ctx = this.ctx;
     const screen = this.worldToScreen(player);
     const r = Math.max(10, player.radius * screen.scale);
-
-    // Rainbow cycling color for HP > 1000
-    if (player.hp > 1000) {
-      const hue = (time * 0.12) % 360;
-      player.color = `hsl(${hue}, 100%, 58%)`;
-      player.accent = `hsl(${(hue + 45) % 360}, 100%, 82%)`;
-    }
-
-    const profile = topProfile(player);
-    const spin = time * profile.spin + player.x * 0.017;
-    const wobble = Math.sin(time * 0.006 + player.y * 0.04) * r * 0.035;
     const x = screen.x;
-    const y = screen.y + wobble;
-    const avatarR = r * 0.52;
-    const showAvatar = r > 14 && (detail === "high" || showName || player.auraLevel > 0);
+    const y = screen.y;
+    const spin = time * 0.014 + player.x * 0.01;
+    const avatarR = r * 0.5;
 
-    if (detail === "ultra") {
-      this.drawFastTop(x, y, r, player, spin, showName);
-      if (showName) this.drawAvatar(player, x, y, avatarR);
-      this.drawHealthRing(x, y, avatarR, player, detail);
-      if (isCrowned) this.drawCrown(x, y, r);
-      return;
-    }
-
-    if (detail === "low") {
-      this.drawFastTop(x, y, r, player, spin, showName);
-      if (showName) this.drawAvatar(player, x, y, avatarR);
-      this.drawHealthRing(x, y, avatarR, player, detail);
-      if (isCrowned) this.drawCrown(x, y, r);
-      return;
-    }
-
-    if (profile.blades <= 0 || player.hp <= 25) {
-      this.drawBareTop(x, y, r, player, spin, showName);
-      if (showAvatar) this.drawAvatar(player, x, y, avatarR);
-      this.drawHealthRing(x, y, avatarR, player, detail);
-      if (isCrowned) this.drawCrown(x, y, r);
-      return;
-    }
-
-    if (player.auraLevel > 0) this.drawAura(x, y, r, player, time, detail);
-    if (detail === "high") this.drawShadow(x, y, r);
-    if (detail !== "medium" || player.auraLevel > 0) this.drawSpeedLines(x, y, r, spin, player);
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(spin);
-    ctx.shadowColor = player.auraLevel ? this.getAuraColor(player) : player.color;
-    ctx.shadowBlur = player.auraLevel ? 16 + player.auraLevel * 8 : 8;
-
-    this.drawAttackRing(r, player, profile);
-    this.drawMetalDisk(r, player, profile);
-    this.drawCenterCore(r, player, spin);
-    ctx.restore();
-
-    if (showAvatar) this.drawAvatar(player, x, y, avatarR);
+    this.drawSingleGear(x, y, r, player, spin);
+    this.drawAvatar(player, x, y, avatarR);
     this.drawHealthRing(x, y, avatarR, player, detail);
-    if (isCrowned) this.drawCrown(x, y, r);
-    if (showName) this.drawNameplate(player, x, y, r);
+    this.drawPlayerHeader(player, x, y, r, isCrowned, showName || detail === "high");
   }
 
   allowVisualEffect(key, minMs) {
@@ -335,11 +284,73 @@ export class Renderer {
     ctx.restore();
   }
 
+  drawSingleGear(x, y, r, player, spin) {
+    const ctx = this.ctx;
+    const teeth = 8;
+    const inner = r * 0.56;
+    const outer = r * 0.86;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spin);
+    ctx.fillStyle = hexToRgba(player.color, 0.92);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.74)";
+    ctx.lineWidth = Math.max(2, r * 0.045);
+
+    ctx.beginPath();
+    for (let i = 0; i < teeth * 2; i += 1) {
+      const radius = i % 2 === 0 ? outer : inner;
+      const angle = (i / (teeth * 2)) * TWO_PI;
+      const px = Math.cos(angle) * radius;
+      const py = Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = hexToRgba(player.accent, 0.72);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.62, 0, TWO_PI);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawPlayerHeader(player, x, y, r, isCrowned, showName) {
+    const ctx = this.ctx;
+    const wins = player.wins ?? player.kills ?? 0;
+    const nameY = y - r - (isCrowned ? 28 : 18);
+    const winsY = y - r - 5;
+
+    if (isCrowned) this.drawCrown(x, y, r);
+    if (!showName && !isCrowned && r < 24) return;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+
+    ctx.font = `900 ${Math.max(9, Math.min(15, r * 0.16))}px system-ui`;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.lineWidth = Math.max(3, r * 0.045);
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeText(trimName(player.username), x, nameY);
+    ctx.fillText(trimName(player.username), x, nameY);
+
+    ctx.font = `900 ${Math.max(9, Math.min(14, r * 0.15))}px system-ui`;
+    ctx.fillStyle = "#ffe45c";
+    ctx.strokeText(`${wins} Wins`, x, winsY);
+    ctx.fillText(`${wins} Wins`, x, winsY);
+    ctx.restore();
+  }
+
   drawCrown(x, y, r) {
     const ctx = this.ctx;
     const width = Math.max(22, r * 0.62);
     const height = Math.max(13, r * 0.28);
-    const top = y - r * 0.84 - height;
+    const top = y - r - height - 38;
     ctx.save();
     ctx.shadowColor = "rgba(255, 216, 77, 0.78)";
     ctx.shadowBlur = Math.max(8, r * 0.16);
@@ -708,28 +719,22 @@ export class Renderer {
       ctx.stroke();
     }
     ctx.restore();
-    this.drawAvatarStats(player, x, y, r);
   }
 
   drawAvatarStats(player, x, y, r) {
     if (r < 12) return;
     const ctx = this.ctx;
     const hpText = formatCompact(player.hp);
-    const winsText = `${player.wins ?? player.kills ?? 0} Wins`;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "rgba(0, 0, 0, 0.48)";
-    roundRect(ctx, x - r * 0.82, y - r * 0.32, r * 1.64, r * 0.72, Math.min(8, r * 0.22));
-    ctx.fill();
+    ctx.lineJoin = "round";
+    ctx.font = `900 ${Math.max(12, Math.min(28, r * 0.42))}px system-ui`;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
+    ctx.lineWidth = Math.max(3, r * 0.09);
     ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-    ctx.shadowBlur = 3;
-    ctx.font = `900 ${Math.max(10, Math.min(18, r * 0.36))}px system-ui`;
-    ctx.fillText(hpText, x, y - r * 0.08);
-    ctx.fillStyle = "#cdefff";
-    ctx.font = `800 ${Math.max(7, Math.min(12, r * 0.22))}px system-ui`;
-    ctx.fillText(winsText, x, y + r * 0.2);
+    ctx.strokeText(hpText, x, y);
+    ctx.fillText(hpText, x, y);
     ctx.restore();
   }
 
@@ -782,6 +787,7 @@ export class Renderer {
       ctx.fillText(player.username.slice(0, 1).toUpperCase(), x, y);
     }
     ctx.restore();
+    this.drawAvatarStats(player, x, y, r);
   }
 
   drawNameplate(player, x, y, r) {
@@ -1029,29 +1035,6 @@ function offsetPolar(angle, radius, offset) {
   };
 }
 
-// Gear profiles grouped by blade count (2–10). topProfile() picks by HP.
-// Each blade count has 2 variants; player hash picks which variant.
-const GEAR_PROFILES = [
-  { blades: 2,  length: 1.10, width: 0.35, base: 0.55, panels: 2,  hook: 0.20, spin: 0.022 }, //  0 duo sharp
-  { blades: 2,  length: 0.90, width: 0.28, base: 0.60, panels: 2,  hook: 0.12, spin: 0.020 }, //  1 duo wide
-  { blades: 3,  length: 1.05, width: 0.30, base: 0.60, panels: 3,  hook: 0.26, spin: 0.019 }, //  2 tri-claw
-  { blades: 3,  length: 0.88, width: 0.24, base: 0.65, panels: 3,  hook: 0.14, spin: 0.017 }, //  3 tri-wide
-  { blades: 4,  length: 0.88, width: 0.20, base: 0.68, panels: 4,  hook: 0.15, spin: 0.014 }, //  4 quad classic
-  { blades: 4,  length: 0.58, width: 0.30, base: 0.72, panels: 4,  hook: 0.06, spin: 0.010 }, //  5 quad stubby
-  { blades: 5,  length: 0.94, width: 0.12, base: 0.66, panels: 5,  hook: 0.22, spin: 0.017 }, //  6 penta sharp
-  { blades: 5,  length: 0.72, width: 0.18, base: 0.70, panels: 5,  hook: 0.10, spin: 0.012 }, //  7 penta star
-  { blades: 6,  length: 0.64, width: 0.16, base: 0.68, panels: 6,  hook: 0.14, spin: 0.012 }, //  8 hex classic
-  { blades: 6,  length: 0.50, width: 0.26, base: 0.76, panels: 6,  hook: 0.05, spin: 0.009 }, //  9 hex squat
-  { blades: 7,  length: 0.86, width: 0.20, base: 0.70, panels: 7,  hook: 0.17, spin: 0.013 }, // 10 sept berserker
-  { blades: 7,  length: 0.60, width: 0.15, base: 0.72, panels: 7,  hook: 0.08, spin: 0.011 }, // 11 sept round
-  { blades: 8,  length: 0.68, width: 0.18, base: 0.70, panels: 8,  hook: 0.13, spin: 0.013 }, // 12 oct medium
-  { blades: 8,  length: 0.44, width: 0.24, base: 0.74, panels: 8,  hook: 0.07, spin: 0.009 }, // 13 oct tank
-  { blades: 9,  length: 0.56, width: 0.13, base: 0.66, panels: 9,  hook: 0.20, spin: 0.011 }, // 14 nine mage
-  { blades: 9,  length: 0.80, width: 0.10, base: 0.64, panels: 9,  hook: 0.24, spin: 0.014 }, // 15 nine slim
-  { blades: 10, length: 0.74, width: 0.11, base: 0.64, panels: 10, hook: 0.18, spin: 0.016 }, // 16 ten assassin
-  { blades: 10, length: 0.54, width: 0.16, base: 0.68, panels: 10, hook: 0.10, spin: 0.013 }, // 17 ten fan
-];
-
 function samplePlayerPosition(samples = [], renderTime) {
   if (samples.length === 0) return { x: 0, y: 0 };
   if (samples.length === 1 || renderTime <= samples[0].time) {
@@ -1088,15 +1071,6 @@ function lerp(from, to, t) {
   return from + (to - from) * t;
 }
 
-function topProfile(player) {
-  // Blades: 2 at HP > 25, +1 per 100 HP, max 10
-  const blades = Math.min(10, 2 + Math.floor(Math.max(0, player.hp - 26) / 100));
-  // Each blade count has 2 variants in GEAR_PROFILES; pick by player hash
-  const firstIndex = (blades - 2) * 2;
-  const variant = stableHash(player.id) % 2;
-  return GEAR_PROFILES[firstIndex + variant];
-}
-
 function hpPalette(hp) {
   return HP_COLORS[hpTier(hp)];
 }
@@ -1112,15 +1086,6 @@ function getDetailLevel(count) {
   if (count >= 70) return "low";
   if (count >= 45) return "medium";
   return "high";
-}
-
-function stableHash(value) {
-  let hash = 2166136261;
-  for (const char of String(value)) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
 }
 
 function roundRect(ctx, x, y, width, height, radius) {

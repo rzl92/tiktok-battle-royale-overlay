@@ -1,3 +1,7 @@
+const BASE_RADIUS = 104;
+const MAX_RADIUS = 340;
+const SIZE_CAP_HP = 1000;
+
 export const gameConfig = {
   arena: {
     width: 1080,
@@ -7,13 +11,17 @@ export const gameConfig = {
   player: {
     baseHP: 25,
     giftHPPerCoin: 25,
-    baseRadius: 104,
-    maxRenderedRadius: 680,
+    baseRadius: BASE_RADIUS,
+    maxRenderedRadius: MAX_RADIUS,
+    sizeCapHP: SIZE_CAP_HP,
     respawnInvulnerabilityMs: 1200
   },
   formulas: {
     sizeScale(hp) {
-      return 1 + Math.min(hp / 220, 12);
+      const t = clamp(Number(hp) / SIZE_CAP_HP, 0, 1);
+      const eased = t * t * (3 - 2 * t);
+      const maxScale = MAX_RADIUS / BASE_RADIUS;
+      return 1 + (maxScale - 1) * eased;
     },
     damage(hp, classConfig) {
       const baseDamage = hp <= 100 ? 1 : 2 + Math.floor(Math.max(0, hp - 101) / 100);
@@ -57,7 +65,7 @@ export const gameConfig = {
     attackerRecoil: 55,
     maxVelocity: 760,
     spinJitter: 0.04,
-    collisionCellSize: 560
+    collisionCellSize: 700
   },
   laser: {
     cooldownMs: 2200,
@@ -139,3 +147,7 @@ export const gameConfig = {
     }
   }
 };
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+}
