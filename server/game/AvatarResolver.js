@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 const TIKTOK_PROFILE_BASE = "https://www.tiktok.com/@";
 const FETCH_TIMEOUT_MS = 8000;
 const FALLBACK_TTL_MS = 60 * 60 * 1000; // 1 hour fallback if no expiry found
@@ -26,7 +24,7 @@ export class AvatarResolver {
     if (this.manualAvatars.has(key)) return this.manualAvatars.get(key);
     const cached = this.fetchCache.get(key);
     if (cached && Date.now() < cached.expiresAt - MIN_TTL_MS) return cached.url;
-    return this._placeholderUrl(key);
+    return null;
   }
 
   resolveLatest(username) {
@@ -34,7 +32,7 @@ export class AvatarResolver {
     if (this.manualAvatars.has(key)) return this.manualAvatars.get(key);
     const cached = this.fetchCache.get(key);
     if (cached && Date.now() < cached.expiresAt - MIN_TTL_MS) return cached.url;
-    return this._placeholderUrl(key);
+    return null;
   }
 
   // Fire-and-forget: scrape TikTok profile in background
@@ -60,10 +58,6 @@ export class AvatarResolver {
     }
   }
 
-  _placeholderUrl(key) {
-    const seed = crypto.createHash("sha1").update(key || "viewer").digest("hex").slice(0, 8);
-    return `/assets/avatars/avatar.svg?seed=${seed}`;
-  }
 }
 
 // Scrape the TikTok profile page and extract an avatar URL.
