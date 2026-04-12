@@ -8,7 +8,7 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "desktop": "electron desktop/main.js",
-    "desktop:build": "electron-builder --win portable",
+    "desktop:build": "electron-builder --win dir",
     "check": "node --check server/index.js && node --check server/game/BattleEngine.js && node --check server/game/PlayerManager.js && node --check server/game/AvatarResolver.js && node --check server/routes/webhooks.js && node --check client/src/main.js && node --check client/src/renderer.js && node --check desktop/main.js"
   },
   "keywords": [
@@ -43,10 +43,7 @@
       "package.json"
     ],
     "win": {
-      "signAndEditExecutable": false,
-      "target": [
-        "portable"
-      ]
+      "signAndEditExecutable": false
     }
   }
 }
