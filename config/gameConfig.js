@@ -5,8 +5,8 @@ export const gameConfig = {
     safePadding: 70
   },
   player: {
-    baseHP: 100,
-    giftHPPerCoin: 10,
+    baseHP: 25,
+    giftHPPerCoin: 25,
     baseRadius: 52,
     maxRenderedRadius: 340,
     respawnInvulnerabilityMs: 1200

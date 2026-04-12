@@ -1,47 +1,89 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import cors from "cors";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
 import { app, BrowserWindow, shell } from "electron";
+import { gameConfig } from "../config/gameConfig.js";
+import { PlayerManager } from "../server/game/PlayerManager.js";
+import { BattleEngine } from "../server/game/BattleEngine.js";
+import { createWebhookRouter } from "../server/routes/webhooks.js";
+import { createSimulatorRouter } from "../server/routes/simulator.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.join(__dirname, "..");
-const localPort = Number(process.env.DESKTOP_PORT || 3173);
-const backendUrl = process.env.BACKEND_URL || "https://rzl92-tiktok-battle-royale-overlay.hf.space";
+const localPort = Number(process.env.DESKTOP_PORT || 3000);
 
-let server;
+let httpServer;
 let mainWindow;
 let simulatorWindow;
 
-async function startLocalFrontend() {
-  const local = express();
-  local.disable("x-powered-by");
-  local.use(express.json({ limit: "256kb" }));
-  local.use(express.urlencoded({ extended: true }));
+async function startLocalServer() {
+  const expressApp = express();
+  httpServer = createServer(expressApp);
 
-  local.get("/socket.io/socket.io.js", async (_req, res) => {
+  const io = new Server(httpServer, {
+    cors: { origin: "*" }
+  });
+
+  expressApp.disable("x-powered-by");
+  expressApp.use(cors({ origin: "*" }));
+  expressApp.use(express.json({ limit: "256kb" }));
+  expressApp.use(express.urlencoded({ extended: true }));
+
+  const playerManager = new PlayerManager(gameConfig);
+  const battleEngine = new BattleEngine({ io, playerManager, config: gameConfig });
+
+  expressApp.use("/assets", express.static(path.join(rootDir, "assets")));
+  expressApp.use("/client", express.static(path.join(rootDir, "client")));
+  expressApp.use("/", createWebhookRouter({ playerManager, battleEngine }));
+  expressApp.use("/", createSimulatorRouter({ playerManager, battleEngine }));
+
+  expressApp.get("/avatar-proxy", async (req, res) => {
+    const url = String(req.query.url || "").trim();
+    if (!url.startsWith("https://") && !url.startsWith("http://")) {
+      return res.status(400).end("Bad url");
+    }
     try {
-      const upstream = await fetch(`${backendUrl}/socket.io/socket.io.js`);
-      if (!upstream.ok) {
-        res.status(upstream.status).send("Unable to load Socket.IO client");
-        return;
-      }
-      res.type("application/javascript").send(await upstream.text());
-    } catch (error) {
-      res.status(502).send(`Unable to reach backend: ${error.message}`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 7000);
+      const upstream = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; TikTokBattleRoyaleBot/1.0)" }
+      });
+      clearTimeout(timer);
+      const ct = upstream.headers.get("content-type") || "image/jpeg";
+      if (!ct.startsWith("image/")) return res.status(400).end("Not an image");
+      res.setHeader("Content-Type", ct);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.end(Buffer.from(await upstream.arrayBuffer()));
+    } catch {
+      res.status(502).end("Proxy error");
     }
   });
 
-  local.use("/assets", express.static(path.join(rootDir, "assets")));
-  local.use("/client", express.static(path.join(rootDir, "client")));
-  local.all(["/webhook1", "/webhook2", "/webhook3", "/webhook4", "/join", "/gift", "/ultimate", "/reset", "/avatar", "/avatar-proxy", "/health", "/debug-last"], proxyBackend);
-  local.get("/simulator", (_req, res) => res.redirect("/client/simulator.html"));
-  local.get("/", (_req, res) => res.redirect("/client/overlay.html"));
+  expressApp.get("/health", (req, res) => {
+    res.json({ ok: true, players: playerManager.getAlivePlayers().length, uptime: process.uptime() });
+  });
+
+  expressApp.get("/", (req, res) => res.redirect("/client/overlay.html"));
+
+  io.on("connection", (socket) => {
+    socket.emit("config", { config: gameConfig, transparent: false });
+    socket.emit("state", battleEngine.getSnapshot());
+    socket.emit("events", battleEngine.getRecentEvents());
+  });
+
+  battleEngine.start(Number(process.env.TICK_RATE || 30));
 
   await new Promise((resolve, reject) => {
-    server = local.listen(localPort, "127.0.0.1", resolve);
-    server.once("error", reject);
+    httpServer.listen(localPort, "127.0.0.1", resolve);
+    httpServer.once("error", reject);
   });
+
+  console.log(`Local server running at http://127.0.0.1:${localPort}`);
 }
 
 function createWindow() {
@@ -58,7 +100,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${localPort}/client/overlay.html?backend=${encodeURIComponent(backendUrl)}`);
+  mainWindow.loadURL(`http://127.0.0.1:${localPort}/client/overlay.html`);
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isLocalSimulatorUrl(url)) {
       openSimulatorWindow();
@@ -89,7 +131,7 @@ function openSimulatorWindow() {
     }
   });
 
-  simulatorWindow.loadURL(`http://127.0.0.1:${localPort}/client/simulator.html?backend=${encodeURIComponent(backendUrl)}`);
+  simulatorWindow.loadURL(`http://127.0.0.1:${localPort}/client/simulator.html`);
   simulatorWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.includes("/client/overlay.html")) {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
@@ -112,44 +154,13 @@ function isLocalSimulatorUrl(url) {
   }
 }
 
-async function proxyBackend(req, res) {
-  try {
-    const upstreamUrl = new URL(req.originalUrl, backendUrl);
-    const method = req.method.toUpperCase();
-    const headers = { ...req.headers, host: upstreamUrl.host };
-    delete headers["content-length"];
-
-    const upstream = await fetch(upstreamUrl, {
-      method,
-      headers,
-      body: method === "GET" || method === "HEAD" ? undefined : buildProxyBody(req)
-    });
-
-    res.status(upstream.status);
-    upstream.headers.forEach((value, key) => {
-      if (!["content-encoding", "content-length", "transfer-encoding"].includes(key.toLowerCase())) {
-        res.setHeader(key, value);
-      }
-    });
-    res.send(Buffer.from(await upstream.arrayBuffer()));
-  } catch (error) {
-    res.status(502).json({ ok: false, error: `Backend proxy failed: ${error.message}` });
-  }
-}
-
-function buildProxyBody(req) {
-  if (req.is("application/json")) return JSON.stringify(req.body || {});
-  if (req.is("application/x-www-form-urlencoded")) return new URLSearchParams(req.body || {}).toString();
-  return undefined;
-}
-
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("disable-background-timer-throttling");
 
 app.whenReady().then(async () => {
-  await startLocalFrontend();
+  await startLocalServer();
   createWindow();
 
   app.on("activate", () => {
@@ -162,5 +173,5 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  if (server) server.close();
+  if (httpServer) httpServer.close();
 });

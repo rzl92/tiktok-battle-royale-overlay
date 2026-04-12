@@ -232,6 +232,14 @@ export class Renderer {
     const ctx = this.ctx;
     const screen = this.worldToScreen(player);
     const r = Math.max(10, player.radius * screen.scale);
+
+    // Rainbow cycling color for HP > 1000
+    if (player.hp > 1000) {
+      const hue = (time * 0.12) % 360;
+      player.color = `hsl(${hue}, 100%, 58%)`;
+      player.accent = `hsl(${(hue + 45) % 360}, 100%, 82%)`;
+    }
+
     const profile = topProfile(player);
     const spin = time * profile.spin + player.x * 0.017;
     const wobble = Math.sin(time * 0.006 + player.y * 0.04) * r * 0.035;
@@ -240,19 +248,19 @@ export class Renderer {
 
     if (detail === "ultra") {
       this.drawFastTop(x, y, r, player, spin, showName);
-      this.drawHpRing(player, x, y, r);
+
       return;
     }
 
     if (detail === "low") {
       this.drawFastTop(x, y, r, player, spin, showName);
-      this.drawHpRing(player, x, y, r);
+
       return;
     }
 
-    if (profile.blades <= 0) {
+    if (profile.blades <= 0 || player.hp <= 25) {
       this.drawBareTop(x, y, r, player, spin, showName);
-      this.drawHpRing(player, x, y, r);
+
       if (r > 14 && (detail === "high" || showName)) this.drawAvatar(player, x, y, r * 0.52);
       return;
     }
@@ -272,7 +280,6 @@ export class Renderer {
     this.drawCenterCore(r, player, spin);
     ctx.restore();
 
-    this.drawHpRing(player, x, y, r);
     if (r > 14 && (detail === "high" || showName || player.auraLevel > 0)) this.drawAvatar(player, x, y, r * 0.52);
     if (showName) this.drawNameplate(player, x, y, r);
   }
@@ -331,12 +338,16 @@ export class Renderer {
 
   drawFastTop(x, y, r, player, spin, showName) {
     const ctx = this.ctx;
-    const sprite = this.getFastTopSprite(player, r);
-
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(spin);
-    ctx.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size);
+    // Rainbow players skip sprite cache (color changes every frame)
+    if (player.hp > 1000) {
+      this.drawSimpleTop(0, 0, r, player, 0, false);
+    } else {
+      const sprite = this.getFastTopSprite(player, r);
+      ctx.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size);
+    }
     ctx.restore();
 
     if (showName && r > 16) this.drawCompactName(player, x, y, r);
@@ -407,7 +418,7 @@ export class Renderer {
     canvas.height = size;
     const ctx = canvas.getContext("2d", { alpha: true });
     const r2 = bucketR;
-    const blades = Math.min(8, 3 + Math.floor(tier / 2) + auraLevel);
+    const blades = player.hp <= 25 ? 0 : Math.min(6, 2 + Math.floor(Math.max(0, player.hp - 26) / 100));
 
     ctx.translate(size / 2, size / 2);
 
@@ -517,11 +528,6 @@ export class Renderer {
       ctx.lineWidth = Math.max(2, r * 0.045);
     }
 
-    ctx.strokeStyle = "rgba(230, 248, 255, 0.38)";
-    ctx.lineWidth = Math.max(2, r * 0.03);
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.92, 0, TWO_PI);
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -679,35 +685,6 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawHpRing(player, x, y, r) {
-    const ctx = this.ctx;
-    const ratio = Math.max(0, Math.min(1, player.hp / Math.max(player.maxSeenHP, player.hp, 1)));
-    const ringR = r * 1.08;
-    const line = Math.max(3, Math.min(12, r * 0.065));
-    const start = -Math.PI / 2;
-    const end = start + TWO_PI * ratio;
-
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineWidth = line;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.56)";
-    ctx.beginPath();
-    ctx.arc(x, y, ringR, 0, TWO_PI);
-    ctx.stroke();
-
-    ctx.strokeStyle = hpBarColor(ratio, player.hp, this.getAuraColor(player));
-    ctx.beginPath();
-    ctx.arc(x, y, ringR, start, end);
-    ctx.stroke();
-
-    ctx.lineWidth = Math.max(1, line * 0.28);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
-    ctx.beginPath();
-    ctx.arc(x, y, ringR, 0, TWO_PI);
-    ctx.stroke();
-    ctx.restore();
-  }
-
   drawNameplate(player, x, y, r) {
     const ctx = this.ctx;
     const width = Math.max(86, Math.min(172, r * 2.55));
@@ -801,8 +778,19 @@ export class Renderer {
       }
 
       if (effect.kind === "laser" && detail !== "ultra") {
+        if (!effect._boltNorms) {
+          effect._boltNorms = genBoltNorms(11);
+          effect._forkData = genForkData();
+          effect._jitterTimer = 80;
+        }
+        effect._jitterTimer -= dt;
+        if (effect._jitterTimer <= 0) {
+          effect._boltNorms = genBoltNorms(11);
+          effect._forkData = genForkData();
+          effect._jitterTimer = 80;
+        }
         const endPt = this.worldToScreen({ x: effect.tx, y: effect.ty });
-        drawElectricBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, point.scale);
+        drawElectricBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, point.scale, effect._boltNorms, effect._forkData);
       }
 
       if ((effect.kind === "burst" || effect.kind === "power") && detail !== "low" && detail !== "ultra") {
@@ -815,12 +803,22 @@ export class Renderer {
       }
 
       if (effect.kind === "lightning" && detail !== "ultra") {
+        if (!effect._rayNorms) {
+          effect._rayNorms = effect.rays.map(() => genBoltNorms(7));
+          effect._jitterTimer = 80;
+        }
+        effect._jitterTimer -= dt;
+        if (effect._jitterTimer <= 0) {
+          effect._rayNorms = effect.rays.map(() => genBoltNorms(7));
+          effect._jitterTimer = 80;
+        }
         ctx.globalCompositeOperation = "lighter";
-        for (const ray of effect.rays) {
+        for (let ri = 0; ri < effect.rays.length; ri++) {
+          const ray = effect.rays[ri];
           const ex = effect.x + Math.cos(ray.angle) * ray.length;
           const ey = effect.y + Math.sin(ray.angle) * ray.length;
           const endPt = this.worldToScreen({ x: ex, y: ey });
-          drawLightningBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, ray.hit, point.scale);
+          drawLightningBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, ray.hit, point.scale, effect._rayNorms[ri]);
         }
         // Expanding discharge ring at caster
         const ringR = (18 + 90 * (1 - t)) * point.scale;
@@ -900,28 +898,27 @@ function offsetPolar(angle, radius, offset) {
   };
 }
 
-// 20 distinct gear profiles ? assigned per-player via ID hash for maximum visual variety
+// Gear profiles grouped by blade count (2–10). topProfile() picks by HP.
+// Each blade count has 2 variants; player hash picks which variant.
 const GEAR_PROFILES = [
-  { blades: 3,  length: 1.05, width: 0.30, base: 0.60, panels: 3,  hook: 0.26, spin: 0.019 }, //  0 tri-claw
-  { blades: 3,  length: 0.88, width: 0.24, base: 0.65, panels: 3,  hook: 0.14, spin: 0.017 }, //  1 tri-wide
-  { blades: 4,  length: 0.88, width: 0.20, base: 0.68, panels: 4,  hook: 0.15, spin: 0.014 }, //  2 quad classic
-  { blades: 4,  length: 0.58, width: 0.30, base: 0.72, panels: 4,  hook: 0.06, spin: 0.010 }, //  3 quad stubby
-  { blades: 5,  length: 0.94, width: 0.12, base: 0.66, panels: 5,  hook: 0.22, spin: 0.017 }, //  4 penta sharp
-  { blades: 5,  length: 0.72, width: 0.18, base: 0.70, panels: 5,  hook: 0.10, spin: 0.012 }, //  5 penta star
-  { blades: 6,  length: 0.64, width: 0.16, base: 0.68, panels: 6,  hook: 0.14, spin: 0.012 }, //  6 hex classic
-  { blades: 6,  length: 0.50, width: 0.26, base: 0.76, panels: 6,  hook: 0.05, spin: 0.009 }, //  7 hex squat
-  { blades: 7,  length: 0.86, width: 0.20, base: 0.70, panels: 7,  hook: 0.17, spin: 0.013 }, //  8 sept berserker
-  { blades: 7,  length: 0.60, width: 0.15, base: 0.72, panels: 7,  hook: 0.08, spin: 0.011 }, //  9 sept round
-  { blades: 8,  length: 0.68, width: 0.18, base: 0.70, panels: 8,  hook: 0.13, spin: 0.013 }, // 10 oct medium
-  { blades: 8,  length: 0.44, width: 0.24, base: 0.74, panels: 8,  hook: 0.07, spin: 0.009 }, // 11 oct tank
-  { blades: 9,  length: 0.56, width: 0.13, base: 0.66, panels: 9,  hook: 0.20, spin: 0.011 }, // 12 nine mage
-  { blades: 9,  length: 0.80, width: 0.10, base: 0.64, panels: 9,  hook: 0.24, spin: 0.014 }, // 13 nine slim
-  { blades: 10, length: 0.74, width: 0.11, base: 0.64, panels: 10, hook: 0.18, spin: 0.016 }, // 14 ten assassin
-  { blades: 10, length: 0.54, width: 0.16, base: 0.68, panels: 10, hook: 0.10, spin: 0.013 }, // 15 ten fan
-  { blades: 11, length: 0.62, width: 0.10, base: 0.66, panels: 11, hook: 0.12, spin: 0.014 }, // 16 eleven
-  { blades: 12, length: 0.52, width: 0.09, base: 0.68, panels: 12, hook: 0.09, spin: 0.015 }, // 17 twelve fine
-  { blades: 5,  length: 1.14, width: 0.14, base: 0.58, panels: 5,  hook: 0.28, spin: 0.020 }, // 18 penta dragon
-  { blades: 4,  length: 1.00, width: 0.22, base: 0.62, panels: 4,  hook: 0.20, spin: 0.018 }, // 19 quad hawk
+  { blades: 2,  length: 1.10, width: 0.35, base: 0.55, panels: 2,  hook: 0.20, spin: 0.022 }, //  0 duo sharp
+  { blades: 2,  length: 0.90, width: 0.28, base: 0.60, panels: 2,  hook: 0.12, spin: 0.020 }, //  1 duo wide
+  { blades: 3,  length: 1.05, width: 0.30, base: 0.60, panels: 3,  hook: 0.26, spin: 0.019 }, //  2 tri-claw
+  { blades: 3,  length: 0.88, width: 0.24, base: 0.65, panels: 3,  hook: 0.14, spin: 0.017 }, //  3 tri-wide
+  { blades: 4,  length: 0.88, width: 0.20, base: 0.68, panels: 4,  hook: 0.15, spin: 0.014 }, //  4 quad classic
+  { blades: 4,  length: 0.58, width: 0.30, base: 0.72, panels: 4,  hook: 0.06, spin: 0.010 }, //  5 quad stubby
+  { blades: 5,  length: 0.94, width: 0.12, base: 0.66, panels: 5,  hook: 0.22, spin: 0.017 }, //  6 penta sharp
+  { blades: 5,  length: 0.72, width: 0.18, base: 0.70, panels: 5,  hook: 0.10, spin: 0.012 }, //  7 penta star
+  { blades: 6,  length: 0.64, width: 0.16, base: 0.68, panels: 6,  hook: 0.14, spin: 0.012 }, //  8 hex classic
+  { blades: 6,  length: 0.50, width: 0.26, base: 0.76, panels: 6,  hook: 0.05, spin: 0.009 }, //  9 hex squat
+  { blades: 7,  length: 0.86, width: 0.20, base: 0.70, panels: 7,  hook: 0.17, spin: 0.013 }, // 10 sept berserker
+  { blades: 7,  length: 0.60, width: 0.15, base: 0.72, panels: 7,  hook: 0.08, spin: 0.011 }, // 11 sept round
+  { blades: 8,  length: 0.68, width: 0.18, base: 0.70, panels: 8,  hook: 0.13, spin: 0.013 }, // 12 oct medium
+  { blades: 8,  length: 0.44, width: 0.24, base: 0.74, panels: 8,  hook: 0.07, spin: 0.009 }, // 13 oct tank
+  { blades: 9,  length: 0.56, width: 0.13, base: 0.66, panels: 9,  hook: 0.20, spin: 0.011 }, // 14 nine mage
+  { blades: 9,  length: 0.80, width: 0.10, base: 0.64, panels: 9,  hook: 0.24, spin: 0.014 }, // 15 nine slim
+  { blades: 10, length: 0.74, width: 0.11, base: 0.64, panels: 10, hook: 0.18, spin: 0.016 }, // 16 ten assassin
+  { blades: 10, length: 0.54, width: 0.16, base: 0.68, panels: 10, hook: 0.10, spin: 0.013 }, // 17 ten fan
 ];
 
 function samplePlayerPosition(samples = [], renderTime) {
@@ -961,20 +958,12 @@ function lerp(from, to, t) {
 }
 
 function topProfile(player) {
-  const tier = hpTier(player.hp);
-  const hash = stableHash(player.id);
-  const ranges = [
-    [0, 3],
-    [0, 3],
-    [2, 7],
-    [4, 11],
-    [8, 15],
-    [12, 19]
-  ];
-  const rangeIndex = Math.floor(tier / 2);
-  const range = ranges[Math.min(ranges.length - 1, rangeIndex)];
-  const index = range[0] + (hash % (range[1] - range[0] + 1));
-  return GEAR_PROFILES[index];
+  // Blades: 2 at HP > 25, +1 per 100 HP, max 10
+  const blades = Math.min(10, 2 + Math.floor(Math.max(0, player.hp - 26) / 100));
+  // Each blade count has 2 variants in GEAR_PROFILES; pick by player hash
+  const firstIndex = (blades - 2) * 2;
+  const variant = stableHash(player.id) % 2;
+  return GEAR_PROFILES[firstIndex + variant];
 }
 
 function hpPalette(hp) {
@@ -1017,9 +1006,27 @@ function roundRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
+// Returns array of (segments-1) normalized random values in range (-0.5, 0.5)
+function genBoltNorms(segments) {
+  const norms = [];
+  for (let i = 1; i < segments; i++) norms.push(Math.random() - 0.5);
+  return norms;
+}
+
+// Pre-generates fork configuration for electric bolts
+function genForkData() {
+  const count = 2 + (Math.random() < 0.4 ? 1 : 0);
+  return Array.from({ length: count }, () => ({
+    siNorm: 0.15 + Math.random() * 0.7,
+    angleOff: (Math.random() - 0.5) * 1.6,
+    lenNorm: 0.10 + Math.random() * 0.22,
+    norms: genBoltNorms(5)
+  }));
+}
+
 // Draws a zigzag lightning bolt from (x1,y1) to (x2,y2).
-// Re-randomizes every frame so it flickers naturally.
-function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
+// norms: pre-computed random values (cached); omit to regenerate each call.
+function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale, norms) {
   const segments = 7;
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -1032,7 +1039,8 @@ function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
   const pts = [{ x: x1, y: y1 }];
   for (let i = 1; i < segments; i++) {
     const frac = i / segments;
-    const offset = (Math.random() - 0.5) * jitter * (1 - Math.abs(frac - 0.5) * 1.4);
+    const norm = norms ? norms[i - 1] : (Math.random() - 0.5);
+    const offset = norm * jitter * (1 - Math.abs(frac - 0.5) * 1.4);
     pts.push({
       x: x1 + dx * frac + px * offset,
       y: y1 + dy * frac + py * offset
@@ -1072,9 +1080,10 @@ function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
   ctx.restore();
 }
 
-// Electric bolt for laser attacks ? forked, flickering, re-randomized every frame
-function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
-  const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.22);
+// Electric bolt for laser attacks — forked, flickering.
+// boltNorms/forkData: pre-computed cached random values; omit to regenerate each call.
+function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale, boltNorms, forkData) {
+  const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.22, boltNorms);
 
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
@@ -1105,17 +1114,21 @@ function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 
-  // Fork branches (2?3 smaller bolts from random midpoints)
+  // Fork branches — use cached forkData to avoid Math.random() every frame
   const dx = x2 - x1;
   const dy = y2 - y1;
   const blen = Math.hypot(dx, dy);
-  const forks = 2 + (Math.random() < 0.4 ? 1 : 0);
-  for (let f = 0; f < forks; f++) {
-    const si = 2 + Math.floor(Math.random() * (pts.length - 4));
-    const pt = pts[si];
-    const fAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.6;
-    const fLen = blen * (0.10 + Math.random() * 0.22);
-    const fPts = buildBoltPts(pt.x, pt.y, pt.x + Math.cos(fAngle) * fLen, pt.y + Math.sin(fAngle) * fLen, 5, 0.25);
+  const mainAngle = Math.atan2(dy, dx);
+  const activeForks = forkData || [
+    { siNorm: 0.35, angleOff: 0.5, lenNorm: 0.18, norms: null },
+    { siNorm: 0.65, angleOff: -0.5, lenNorm: 0.14, norms: null }
+  ];
+  for (const fork of activeForks) {
+    const si = Math.round(fork.siNorm * (pts.length - 1));
+    const pt = pts[Math.min(si, pts.length - 1)];
+    const fAngle = mainAngle + fork.angleOff;
+    const fLen = blen * fork.lenNorm;
+    const fPts = buildBoltPts(pt.x, pt.y, pt.x + Math.cos(fAngle) * fLen, pt.y + Math.sin(fAngle) * fLen, 5, 0.25, fork.norms);
     ctx.strokeStyle = `rgba(100, 200, 255, ${t * 0.60})`;
     ctx.lineWidth = (1.2 + t * 0.6) * scale;
     ctx.beginPath();
@@ -1139,7 +1152,7 @@ function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
   ctx.restore();
 }
 
-function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac) {
+function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac, norms) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.hypot(dx, dy) || 1;
@@ -1149,7 +1162,8 @@ function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac) {
   const pts = [{ x: x1, y: y1 }];
   for (let i = 1; i < segments; i++) {
     const frac = i / segments;
-    const offset = (Math.random() - 0.5) * jitter * (1 - Math.abs(frac - 0.5) * 1.3);
+    const norm = norms ? norms[i - 1] : (Math.random() - 0.5);
+    const offset = norm * jitter * (1 - Math.abs(frac - 0.5) * 1.3);
     pts.push({ x: x1 + dx * frac + px * offset, y: y1 + dy * frac + py * offset });
   }
   pts.push({ x: x2, y: y2 });

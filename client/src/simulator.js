@@ -32,13 +32,13 @@ document.addEventListener("click", async (event) => {
 });
 
 async function call(path) {
-  const response = await fetch(`${backendUrl}${path}`);
+  const response = await fetch(path);
   const data = await response.json();
   result.textContent = JSON.stringify(data, null, 2);
 }
 
 async function post(path, body) {
-  const response = await fetch(`${backendUrl}${path}`, {
+  const response = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
@@ -52,9 +52,9 @@ async function spawnSwarm(power) {
   for (let i = 1; i <= 40; i += 1) {
     const name = `${prefix}_${Math.floor(Math.random() * 9999)}_${i}`;
     const avatarUrl = `https://api.dicebear.com/8.x/pixel-art/svg?seed=${encodeURIComponent(name)}`;
-    await fetch(`${backendUrl}/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
+    await fetch(`/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
     if (power && i <= 8) {
-      await fetch(`${backendUrl}/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
+      await fetch(`/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
     }
   }
   result.textContent = `${power ? "Power whales" : "Bots"} spawned.`;
