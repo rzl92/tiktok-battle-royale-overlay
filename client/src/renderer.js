@@ -1,8 +1,13 @@
 const TWO_PI = Math.PI * 2;
 const MAX_EFFECTS = 70;
-const INTERPOLATION_DELAY_MS = 120;
-const MAX_EXTRAPOLATION_MS = 50;
-const PLAYER_SAMPLE_LIMIT = 8;
+// At 60 TPS (16ms/tick), 40ms = ~2.5 ticks buffer — enough to absorb jitter
+// while keeping visual lag minimal.
+const INTERPOLATION_DELAY_MS = 40;
+// How far ahead to extrapolate when no new server sample has arrived.
+// 120ms handles brief packet drops without freezing motion.
+const MAX_EXTRAPOLATION_MS = 120;
+// How many server snapshots to keep per player for interpolation.
+const PLAYER_SAMPLE_LIMIT = 16;
 
 // HP tier palette. Players with the same HP range get the same color.
 const HP_COLORS = [
@@ -280,6 +285,25 @@ export class Renderer {
     const x = screen.x;
     const y = screen.y;
     const spin = time * 0.014 + player.x * 0.01;
+
+    // Route background (non-featured) tops to cheaper renderers based on
+    // player count so the CPU budget stays flat as crowd size grows.
+    if (!showName) {
+      if (detail === "ultra") {
+        this.drawBareTop(x, y, r, player, spin, false);
+        return;
+      }
+      if (detail === "low") {
+        this.drawFastTop(x, y, r, player, spin, false);
+        return;
+      }
+      if (detail === "medium") {
+        this.drawSimpleTop(x, y, r, player, spin, false);
+        return;
+      }
+    }
+
+    // Full quality for featured tops or small player counts.
     const avatarR = r * 0.5;
     const visual = this.getTopVisual(player, time);
 
@@ -1205,9 +1229,9 @@ function hpTier(hp) {
 }
 
 function getDetailLevel(count) {
-  if (count >= 140) return "ultra";
-  if (count >= 70) return "low";
-  if (count >= 45) return "medium";
+  if (count >= 120) return "ultra";
+  if (count >= 60) return "low";
+  if (count >= 30) return "medium";
   return "high";
 }
 
@@ -1402,13 +1426,16 @@ function toRgba(color, alpha) {
   return color;
 }
 
+const _rgbCache = new Map();
 function hexToRgba(hex, alpha) {
-  const clean = hex.replace("#", "");
-  const bigint = Number.parseInt(clean, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  let rgb = _rgbCache.get(hex);
+  if (!rgb) {
+    const clean = hex.replace("#", "");
+    const bigint = Number.parseInt(clean, 16);
+    rgb = `${(bigint >> 16) & 255}, ${(bigint >> 8) & 255}, ${bigint & 255}`;
+    _rgbCache.set(hex, rgb);
+  }
+  return `rgba(${rgb}, ${alpha})`;
 }
 
 function trimName(name) {

@@ -15,7 +15,7 @@ export function createBattleServer({
   dataDir = process.env.DATA_DIR || path.join(rootDir || process.cwd(), "data"),
   staticClient = false,
   transparent = false,
-  tickRate = Number(process.env.TICK_RATE || 30),
+  tickRate = Number(process.env.TICK_RATE || 60),
   corsOrigin = process.env.CORS_ORIGIN || "*"
 } = {}) {
   const app = express();
