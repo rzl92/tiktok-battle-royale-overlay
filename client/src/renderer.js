@@ -236,9 +236,20 @@ export class Renderer {
   updateDisplayPositions(dt) {
     const renderTime = performance.now() - INTERPOLATION_DELAY_MS;
     for (const player of this.displayPlayers.values()) {
-      const position = samplePlayerPosition(player.samples, renderTime);
-      player.x = position.x;
-      player.y = position.y;
+      const target = samplePlayerPosition(player.samples, renderTime);
+      if (!player._posInit) {
+        // First frame: snap immediately, no smoothing.
+        player.x = target.x;
+        player.y = target.y;
+        player._posInit = true;
+      } else {
+        // Exponential smoothing: converges in ~20ms so motion stays
+        // responsive, but single-tick position corrections (from collision
+        // push) are absorbed over several frames instead of blinking.
+        const alpha = Math.min(1, dt / 20);
+        player.x += (target.x - player.x) * alpha;
+        player.y += (target.y - player.y) * alpha;
+      }
     }
     return [...this.displayPlayers.values()];
   }
