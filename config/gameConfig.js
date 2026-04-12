@@ -67,7 +67,7 @@ export const gameConfig = {
     maxVelocity: 760,
     spinJitter: 0.04,
     collisionCellSize: 700,
-    collisionContactScale: 0.80,
+    collisionContactScale: 0.58,
     centerPullStrength: 0.055,
     boostImpulseBase: 220,
     boostImpulseMax: 680

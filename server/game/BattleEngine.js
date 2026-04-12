@@ -99,13 +99,13 @@ export class BattleEngine {
         this.steer(player, desiredX, desiredY);
         this.move(player, dt);
       } else {
-        // At contact range: charge straight into target so collision system handles the bounce.
-        // Small lateral jitter keeps combat visually lively.
-        const jitter = (Math.random() - 0.5) * 0.25;
-        this.steer(player,
-          nx * player.speed + -ny * player.speed * jitter,
-          ny * player.speed + nx * player.speed * jitter
-        );
+        // At contact range: slam directly into target with a strong velocity impulse.
+        // This overcomes the gentle steer coefficient and forces visible gear overlap.
+        const jitter = (Math.random() - 0.5) * 0.18;
+        const slamForce = player.speed * 3.5;
+        player.vx += (nx + -ny * jitter) * slamForce * dt;
+        player.vy += (ny + nx * jitter) * slamForce * dt;
+        this.capVelocity(player);
         this.move(player, dt);
         this.tryAttack(player, target, now);
       }

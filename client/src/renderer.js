@@ -777,7 +777,7 @@ export class Renderer {
     const ctx = this.ctx;
     const hpText = formatCompact(player.hp);
     const hpFont = Math.max(13, Math.min(34, r * 0.34));
-    const hpY = y + r * 0.34;
+    const hpY = y;
 
     ctx.save();
     ctx.textAlign = "center";
