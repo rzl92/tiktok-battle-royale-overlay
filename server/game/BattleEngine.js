@@ -326,6 +326,13 @@ export class BattleEngine {
     return event;
   }
 
+  async resetWins() {
+    const result = await this.playerManager.resetWins();
+    const event = this.pushEvent({ type: "winsReset", ...result });
+    this.io.emit("state", this.getSnapshot());
+    return { ...result, event };
+  }
+
   getRoundSettings() {
     return {
       resetSeconds: Math.max(0, Number(this.config.round?.resetSeconds || 0))

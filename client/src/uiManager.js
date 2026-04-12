@@ -38,6 +38,8 @@ export class UIManager {
     this.roundResetSeconds = document.getElementById("roundResetSeconds");
     this.roundResetSave = document.getElementById("roundResetSave");
     this.roundResetStatus = document.getElementById("roundResetStatus");
+    this.resetWinsButton = document.getElementById("resetWinsButton");
+    this.resetWinsStatus = document.getElementById("resetWinsStatus");
     this.appMeta = document.getElementById("appMeta");
     this.backendUrl = getBackendUrl();
 
@@ -81,6 +83,10 @@ export class UIManager {
 
     this.roundResetSave.addEventListener("click", () => {
       this.saveRoundResetSeconds();
+    });
+
+    this.resetWinsButton.addEventListener("click", () => {
+      this.resetAllWins();
     });
 
     window.addEventListener("keydown", (event) => {
@@ -169,6 +175,25 @@ export class UIManager {
       this.roundResetStatus.textContent = `Save failed: ${error.message}`;
     } finally {
       this.roundResetSave.disabled = false;
+    }
+  }
+
+  async resetAllWins() {
+    if (!window.confirm("Reset all player Wins to 0?")) return;
+    this.resetWinsButton.disabled = true;
+    this.resetWinsStatus.textContent = "Resetting Wins...";
+    try {
+      const response = await fetch(`${this.backendUrl || window.location.origin}/settings/wins/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Unable to reset Wins");
+      this.resetWinsStatus.textContent = `Wins reset to 0 for ${data.records} players.`;
+    } catch (error) {
+      this.resetWinsStatus.textContent = `Reset failed: ${error.message}`;
+    } finally {
+      this.resetWinsButton.disabled = false;
     }
   }
 

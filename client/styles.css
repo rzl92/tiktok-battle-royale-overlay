@@ -359,7 +359,14 @@ body {
   cursor: pointer;
 }
 
+.settingsAction.danger {
+  border-color: rgba(255, 99, 120, 0.36);
+  background: rgba(224, 43, 70, 0.18);
+  color: #ffd6dc;
+}
+
 #roundResetStatus,
+#resetWinsStatus,
 #appMeta {
   margin: 0;
   color: var(--muted);

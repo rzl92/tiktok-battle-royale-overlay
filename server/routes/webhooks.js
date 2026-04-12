@@ -211,6 +211,20 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     });
   });
 
+  router.post("/settings/wins/reset", (req, res) => {
+    queue.enqueue(res, async () => {
+      const result = await battleEngine.resetWins();
+      res.json({
+        ok: true,
+        action: "settings.wins.reset",
+        records: result.records,
+        players: result.players,
+        eventId: result.event?.id || null,
+        socketClients: getSocketCount(battleEngine.io)
+      });
+    });
+  });
+
   return router;
 }
 

@@ -136,6 +136,19 @@ export class PlayerManager {
     return record.wins;
   }
 
+  async resetWins() {
+    const alivePlayers = this.getAlivePlayers();
+    for (const record of this.records.values()) {
+      record.wins = 0;
+    }
+    for (const player of alivePlayers) {
+      player.wins = 0;
+      player.kills = 0;
+    }
+    await this.saveRecordsNow();
+    return { records: this.records.size, players: alivePlayers.length };
+  }
+
   getRecords() {
     return [...this.records.values()].map((record) => ({ ...record }));
   }
@@ -211,12 +224,15 @@ export class PlayerManager {
   scheduleSaveRecords() {
     clearTimeout(this.saveRecordsTimer);
     this.saveRecordsTimer = setTimeout(() => {
-      const payload = JSON.stringify({ version: 1, records: this.getRecords() }, null, 2);
-      fs.promises
-        .mkdir(path.dirname(this.recordsFile), { recursive: true })
-        .then(() => fs.promises.writeFile(this.recordsFile, payload))
-        .catch((error) => console.warn("Unable to save wins records:", error.message));
+      this.saveRecordsNow().catch((error) => console.warn("Unable to save wins records:", error.message));
     }, 250);
+  }
+
+  async saveRecordsNow() {
+    clearTimeout(this.saveRecordsTimer);
+    const payload = JSON.stringify({ version: 1, records: this.getRecords() }, null, 2);
+    await fs.promises.mkdir(path.dirname(this.recordsFile), { recursive: true });
+    await fs.promises.writeFile(this.recordsFile, payload);
   }
 }
 

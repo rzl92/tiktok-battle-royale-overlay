@@ -103,15 +103,26 @@ export class Renderer {
       this.pushEffect({ kind: "burst", x: event.x, y: event.y, color: "#ff3d6e", life: 620, max: 620 });
     }
     if (event.type === "gift") {
-      if (!this.allowVisualEffect(`heal:${event.playerId || event.username}`, 90)) return;
-      this.pushEffect({
-        kind: "heal",
-        x: event.x,
-        y: event.y,
-        color: "#39f87b",
-        life: 680,
-        max: 680
-      });
+      if (this.allowVisualEffect(`heal:${event.playerId || event.username}`, 90)) {
+        this.pushEffect({
+          kind: "heal",
+          x: event.x,
+          y: event.y,
+          color: "#39f87b",
+          life: 680,
+          max: 680
+        });
+      }
+      if (event.bonus > 0) {
+        this.pushEffect({
+          kind: "healText",
+          x: event.x,
+          y: event.y,
+          amount: event.bonus,
+          life: 560,
+          max: 560
+        });
+      }
     }
     if (event.type === "ultimate") {
       this.pushEffect({ kind: "flash", life: 320, max: 320 });
@@ -671,20 +682,20 @@ export class Renderer {
     if (r < 12) return;
     const ctx = this.ctx;
     const wins = player.wins ?? player.kills ?? 0;
-    const hpText = `${formatCompact(player.hp)} HP`;
-    const nameFont = Math.max(8, Math.min(15, r * 0.18));
-    const winsFont = Math.max(7, Math.min(13, r * 0.16));
+    const hpText = formatCompact(player.hp);
+    const nameFont = Math.max(10, Math.min(22, r * 0.24));
+    const winsFont = Math.max(9, Math.min(20, r * 0.22));
     const hpFont = Math.max(13, Math.min(34, r * 0.34));
-    const nameY = y - r * (isCrowned ? 0.32 : 0.42);
-    const winsY = nameY + winsFont * 1.15;
-    const hpY = y + r * 0.3;
+    const nameY = y - r * (isCrowned ? 0.28 : 0.38);
+    const winsY = nameY + winsFont * 1.55;
+    const hpY = y + r * 0.34;
 
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
 
-    if (isCrowned) this.drawAvatarCrown(x, y - r * 0.62, r);
+    if (isCrowned) this.drawAvatarCrown(x, y - r * 0.64, r);
 
     ctx.strokeStyle = "rgba(0, 0, 0, 0.95)";
     ctx.lineWidth = Math.max(2.5, r * 0.07);
@@ -872,6 +883,21 @@ export class Renderer {
         ctx.font = "500 22px system-ui";
         ctx.textAlign = "center";
         ctx.fillText(`-${effect.damage}`, point.x, point.y - 26 * (1 - t));
+      }
+
+      if (effect.kind === "healText" && detail !== "ultra") {
+        const offset = 28 * (1 - t) * point.scale;
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `900 ${Math.max(16, 23 * point.scale)}px system-ui`;
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = `rgba(0, 0, 0, ${0.85 * t})`;
+        ctx.lineWidth = Math.max(3, 5 * point.scale);
+        ctx.fillStyle = `rgba(89, 255, 133, ${t})`;
+        ctx.strokeText(`+${formatCompact(effect.amount)}`, point.x, point.y - offset);
+        ctx.fillText(`+${formatCompact(effect.amount)}`, point.x, point.y - offset);
+        ctx.restore();
       }
 
       if (effect.kind === "laser" && detail !== "ultra") {
