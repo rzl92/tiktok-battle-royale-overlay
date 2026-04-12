@@ -35,15 +35,11 @@ export class UIManager {
     this.settingsButton = document.getElementById("settingsButton");
     this.settingsPanel = document.getElementById("settingsPanel");
     this.settingsClose = document.getElementById("settingsClose");
-    this.countdownEnabled = document.getElementById("countdownEnabled");
-    this.countdownSeconds = document.getElementById("countdownSeconds");
     this.backendUrl = getBackendUrl();
 
-    this._countdownTimer = null;
-    this._countdownRemaining = 0;
     this._currentWinner = null;
+    this._winnerRenderKey = "";
 
-    // Restore sync settings first (volumes, countdown), then async toggles
     this._restoreSync();
     this.renderAudioButtons();
     this.renderGuideUrls();
@@ -71,14 +67,6 @@ export class UIManager {
       saveSetting("musicVolume", this.musicVolume.value);
     });
 
-    this.countdownEnabled.addEventListener("change", () => {
-      saveSetting("countdownEnabled", this.countdownEnabled.checked);
-    });
-
-    this.countdownSeconds.addEventListener("input", () => {
-      saveSetting("countdownSeconds", this.countdownSeconds.value);
-    });
-
     this.settingsButton.addEventListener("click", () => {
       this.setSettingsOpen(!this.settingsPanel.classList.contains("open"));
     });
@@ -92,15 +80,12 @@ export class UIManager {
     });
   }
 
-  // Synchronous restore: volumes + countdown (safe to do before render)
   _restoreSync() {
     const s = loadSettings();
     if (s.sfxVolume !== undefined) this.sfxVolume.value = s.sfxVolume;
     if (s.musicVolume !== undefined) this.musicVolume.value = s.musicVolume;
     this.sound.setSfxVolume(Number(this.sfxVolume.value) / 100);
     this.sound.setMusicVolume(Number(this.musicVolume.value) / 100);
-    if (s.countdownEnabled !== undefined) this.countdownEnabled.checked = s.countdownEnabled;
-    if (s.countdownSeconds !== undefined) this.countdownSeconds.value = s.countdownSeconds;
   }
 
   // Async restore: ON/OFF toggle state (requires audio context init)
@@ -136,10 +121,14 @@ export class UIManager {
     const overlayUrl = this.backendUrl
       ? `${window.location.origin}/client/overlay.html?backend=${encodeURIComponent(this.backendUrl)}`
       : `${window.location.origin}/client/overlay.html`;
+    const simulatorUrl = this.backendUrl
+      ? `${window.location.origin}/client/simulator.html?backend=${encodeURIComponent(this.backendUrl)}`
+      : `${window.location.origin}/client/simulator.html`;
     document.getElementById("overlayUrl").textContent = overlayUrl;
     document.getElementById("joinWebhookUrl").textContent = `${webhookBaseUrl}/webhook1`;
     document.getElementById("giftWebhookUrl").textContent = `${webhookBaseUrl}/webhook2`;
     document.getElementById("ultimateWebhookUrl").textContent = `${webhookBaseUrl}/webhook3`;
+    document.getElementById("simulatorLink").href = simulatorUrl;
   }
 
   setSettingsOpen(open) {
@@ -164,61 +153,31 @@ export class UIManager {
     );
   }
 
-  updateWinner(winner) {
+  updateWinner(winner, resetAt) {
     if (!winner) {
-      this._stopCountdown();
       this.winnerBanner.hidden = true;
       this._currentWinner = null;
+      this._winnerRenderKey = "";
       return;
     }
 
-    const isNew = !this._currentWinner || this._currentWinner.username !== winner.username;
     this._currentWinner = winner;
-
-    if (isNew) {
-      this._stopCountdown();
-      if (this.countdownEnabled.checked) {
-        const parsed = Number(this.countdownSeconds.value);
-        const secs = Math.max(0, Math.min(120, Number.isFinite(parsed) ? parsed : 15));
-        this._startCountdown(winner, secs);
-      } else {
-        this._renderWinnerBanner(winner, null);
-      }
+    const resetAtNumber = Number(resetAt || 0);
+    const secondsLeft = resetAtNumber > 0
+      ? Math.max(0, Math.ceil((resetAtNumber - Date.now()) / 1000))
+      : null;
+    const renderKey = `${winner.username}:${winner.hp}:${winner.kills}:${secondsLeft}`;
+    if (renderKey !== this._winnerRenderKey) {
+      this._winnerRenderKey = renderKey;
+      this._renderWinnerBanner(winner, secondsLeft);
     }
-  }
-
-  _startCountdown(winner, totalSeconds) {
-    this._countdownRemaining = totalSeconds;
-    this._renderWinnerBanner(winner, this._countdownRemaining);
-    if (this._countdownRemaining <= 0) {
-      this._resetArena();
-      return;
-    }
-
-    this._countdownTimer = setInterval(() => {
-      this._countdownRemaining -= 1;
-      this._renderWinnerBanner(winner, this._countdownRemaining);
-
-      if (this._countdownRemaining <= 0) {
-        this._stopCountdown();
-        this._resetArena();
-      }
-    }, 1000);
-  }
-
-  _stopCountdown() {
-    if (this._countdownTimer !== null) {
-      clearInterval(this._countdownTimer);
-      this._countdownTimer = null;
-    }
-    this._countdownRemaining = 0;
   }
 
   _renderWinnerBanner(winner, secondsLeft) {
     this.winnerBanner.hidden = false;
     const countdownHtml = secondsLeft !== null
       ? `<div class="winner-countdown">Resetting in <span class="winner-countdown-num">${secondsLeft}</span> seconds</div>`
-      : `<div class="winner-countdown">Reset manually via Simulator</div>`;
+      : `<div class="winner-countdown">Reset from the simulator when ready</div>`;
 
     const avatarSrc = winner.avatarUrl
       ? (winner.avatarUrl.startsWith("http://") || winner.avatarUrl.startsWith("https://")
@@ -237,10 +196,6 @@ export class UIManager {
       <div class="winner-meta">${winner.kills} kills &middot; ${winner.hp} HP remaining</div>
       ${countdownHtml}
     `;
-  }
-
-  _resetArena() {
-    fetch(`${this.backendUrl || ""}/reset`).catch(() => {});
   }
 
   addEvent(event) {

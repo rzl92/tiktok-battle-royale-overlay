@@ -1,32 +1,34 @@
 # TikFinity Webhook Mapping
 
-Use HTTP GET actions in TikFinity or a similar live automation tool.
+Use the Hugging Face backend URL when the desktop app is configured with the same `BACKEND_URL`.
 
 ## Join
 
 ```text
-http://localhost:3000/webhook1?username={nickname}
+https://rzl92-tiktok-battle-royale-overlay.hf.space/webhook1?username={nickname}
 ```
 
 ## Gift / HP Boost
 
 ```text
-http://localhost:3000/webhook2?username={nickname}&coins={coins}
+https://rzl92-tiktok-battle-royale-overlay.hf.space/webhook2?username={nickname}&coins={giftCount}
 ```
 
-The MVP formula is `coins * 25 HP`.
+`coins` can also be sent as `giftCount`, `repeatCount`, `amount`, or `diamondCount`.
 
 ## Ultimate
 
 ```text
-http://localhost:3000/webhook3?username={nickname}
+https://rzl92-tiktok-battle-royale-overlay.hf.space/webhook3?username={nickname}
 ```
 
-Each warrior has an ultimate cooldown configured in `config/gameConfig.js`.
+## Supported Username Fields
+
+The backend accepts `username`, `nickname`, `uniqueId`, `userId`, `displayName`, and `name`, including common nested fields such as `user.nickname` or `data.uniqueId`.
+
+If TikFinity sends the literal text `{nickname}`, the backend returns a diagnostic error. In that case, change the TikFinity variable to the actual nickname/uniqueId token TikFinity provides.
 
 ## Avatar Injection
-
-Nickname alone is not enough to reliably fetch TikTok profile images. If your automation layer has avatar URLs, send them to:
 
 ```http
 POST /avatar

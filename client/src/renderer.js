@@ -251,19 +251,19 @@ export class Renderer {
 
     if (detail === "ultra") {
       this.drawFastTop(x, y, r, player, spin, showName);
-
+      this.drawHealthRing(x, y, r, player, detail);
       return;
     }
 
     if (detail === "low") {
       this.drawFastTop(x, y, r, player, spin, showName);
-
+      this.drawHealthRing(x, y, r, player, detail);
       return;
     }
 
     if (profile.blades <= 0 || player.hp <= 25) {
       this.drawBareTop(x, y, r, player, spin, showName);
-
+      this.drawHealthRing(x, y, r, player, detail);
       if (r > 14 && (detail === "high" || showName)) this.drawAvatar(player, x, y, r * 0.52);
       return;
     }
@@ -283,8 +283,33 @@ export class Renderer {
     this.drawCenterCore(r, player, spin);
     ctx.restore();
 
+    this.drawHealthRing(x, y, r, player, detail);
     if (r > 14 && (detail === "high" || showName || player.auraLevel > 0)) this.drawAvatar(player, x, y, r * 0.52);
     if (showName) this.drawNameplate(player, x, y, r);
+  }
+
+  drawHealthRing(x, y, r, player, detail) {
+    const ctx = this.ctx;
+    const maxHp = Math.max(1, player.maxSeenHP || player.hp || 1);
+    const ratio = clamp(player.hp / maxHp, 0, 1);
+    const ringRadius = r * (detail === "ultra" ? 1.04 : 1.1);
+    const width = Math.max(2, Math.min(9, r * (detail === "ultra" ? 0.035 : 0.055)));
+    const auraColor = this.getAuraColor(player);
+
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.lineWidth = width + 2;
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, 0, TWO_PI);
+    ctx.stroke();
+
+    ctx.strokeStyle = hpBarColor(ratio, player.hp, auraColor);
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, -Math.PI / 2, -Math.PI / 2 + TWO_PI * ratio);
+    ctx.stroke();
+    ctx.restore();
   }
 
   drawSimpleTop(x, y, r, player, spin, showName) {
@@ -979,10 +1004,6 @@ function hpTier(hp) {
   return Math.max(2, Math.min(HP_COLORS.length - 1, Math.floor((hp - 1) / 100) + 1));
 }
 
-function strongest(players = []) {
-  return [...players].sort((a, b) => b.hp - a.hp)[0] || null;
-}
-
 function getDetailLevel(count) {
   if (count >= 140) return "ultra";
   if (count >= 70) return "low";
@@ -1175,7 +1196,7 @@ function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac, norms) {
 
 // Returns health bar fill color based on HP ratio.
 // High HP players with aura keep their aura color. Everyone else:
-// 75-100% green ? 50-75% yellow ? 25-50% orange ? 0-25% red
+// 75-100% green, 50-75% yellow, 25-50% orange, 0-25% red.
 function hpBarColor(ratio, hp, auraColor) {
   if (hp >= 1000) return auraColor;
   if (ratio > 0.75) return "#36ec88";
@@ -1195,4 +1216,8 @@ function hexToRgba(hex, alpha) {
 
 function trimName(name) {
   return name.length > 13 ? `${name.slice(0, 12)}.` : name;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
 }

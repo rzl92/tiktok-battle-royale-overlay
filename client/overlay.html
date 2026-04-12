@@ -24,17 +24,8 @@
           </div>
 
           <div class="settingsSection">
-            <h3>Reset Countdown</h3>
-            <div class="countdownRow">
-              <label class="toggleLabel">
-                <input id="countdownEnabled" type="checkbox" />
-                <span>Auto reset after winner</span>
-              </label>
-              <div class="countdownDuration">
-                <input id="countdownSeconds" type="number" min="0" max="120" value="15" />
-                <span>seconds</span>
-              </div>
-            </div>
+            <h3>Round Reset</h3>
+            <p>Winner countdown is controlled by the backend. Change <code>ROUND_RESET_SECONDS</code> in <code>.env</code>.</p>
           </div>
 
           <div class="settingsSection">
@@ -79,7 +70,7 @@
           <section class="settingsSection guideSection">
             <h3>Tools</h3>
             <div class="guideActions">
-              <a id="simulatorLink" href="/simulator" target="_blank" rel="noopener">Open Simulator</a>
+              <a id="simulatorLink" href="/client/simulator.html" target="_blank" rel="noopener">Open Simulator</a>
               <a href="/debug-last" target="_blank" rel="noopener">Debug Last Webhooks</a>
               <a href="/health" target="_blank" rel="noopener">Health Check</a>
             </div>

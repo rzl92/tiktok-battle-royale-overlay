@@ -22,6 +22,12 @@ export class BattleEngine {
     const dt = Math.min(0.08, (now - this.lastTick) / 1000);
     this.lastTick = now;
 
+    if (this.roundWinner && this.resetAt > 0 && now >= this.resetAt) {
+      this.manualReset("autoWinnerCountdown");
+      this.io.emit("state", this.getSnapshot());
+      return;
+    }
+
     const players = this.playerManager.getAlivePlayers();
     this.hitEventBudget = players.length > 100 ? 28 : players.length > 60 ? 42 : 90;
     this.sparkEventBudget = players.length > 80 ? 4 : players.length > 40 ? 8 : 14;
@@ -64,7 +70,7 @@ export class BattleEngine {
       const nx = dx / distance;
       const ny = dy / distance;
 
-      // Effective attack range: use whichever is larger ? the stored attackRange stat OR
+      // Effective attack range: use whichever is larger: the stored attackRange stat OR
       // the actual physical contact distance between the two tops (radius + target.radius).
       // Without this, a small top facing a giant can never enter attack mode because the
       // giant's body pushes it back before it reaches its own small attackRange threshold.
@@ -84,7 +90,7 @@ export class BattleEngine {
         this.tryAttack(player, target, now);
       }
 
-      // Laser fires regardless of melee range ? separate cooldown
+      // Laser fires regardless of melee range on its own cooldown.
       this.tryFireLaser(player, target, now, players);
     }
 
@@ -117,7 +123,7 @@ export class BattleEngine {
   }
 
   tryAttack(attacker, target, now) {
-    // Jitter ?22% so attack timing feels natural and asymmetric
+    // Jitter by roughly 22% so attack timing feels natural and asymmetric.
     const jitter = 0.78 + Math.random() * 0.44;
     const cooldown = this.config.combat.attackCooldownMs * attacker.classConfig.attackCooldownMultiplier * jitter;
     if (now - attacker.lastAttackAt < cooldown) return;
@@ -301,6 +307,7 @@ export class BattleEngine {
 
   handleWinner(winner, now) {
     if (!this.roundWinner) {
+      const resetMs = Math.max(0, Number(this.config.round?.resetSeconds || 0) * 1000);
       this.roundWinner = {
         username: winner.username,
         kills: winner.kills,
@@ -308,17 +315,18 @@ export class BattleEngine {
         hp: Math.max(0, Math.floor(winner.hp)),
         avatarUrl: winner.avatarUrl || null
       };
-      this.resetAt = 0;
-      this.pushEvent({ type: "winner", winner: this.roundWinner, resetAt: 0 });
+      this.resetAt = resetMs > 0 ? now + resetMs : 0;
+      this.pushEvent({ type: "winner", winner: this.roundWinner, resetAt: this.resetAt });
     }
   }
 
-  manualReset() {
-    this.pushEvent({ type: "roundReset" });
+  manualReset(reason = "manual") {
+    const event = this.pushEvent({ type: "roundReset", reason });
     this.playerManager.resetArena();
     this.roundWinner = null;
     this.resetAt = 0;
     this.peakPlayerCount = 0;
+    return event;
   }
 
   wander(player, dt) {
@@ -459,6 +467,7 @@ export class BattleEngine {
     this.events.push(enriched);
     this.events = this.events.slice(-80);
     this.io.emit("events", [enriched]);
+    return enriched;
   }
 
   getRecentEvents() {

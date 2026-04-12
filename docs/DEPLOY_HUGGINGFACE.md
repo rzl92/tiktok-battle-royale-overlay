@@ -1,88 +1,36 @@
-# Deploy Gratis ke Hugging Face Spaces
+# Deploy Backend ke Hugging Face Spaces
 
-Hugging Face Spaces bisa menjalankan custom Docker app dan mengekspos port `7860`. Project ini sudah punya `Dockerfile` yang menjalankan Node/Express pada port tersebut.
+Hugging Face Spaces menjalankan backend webhook pada port `7860`. Production Space tidak menyajikan overlay web; overlay dan simulator dijalankan dari aplikasi desktop.
 
-## 1. Buat Space Baru
-
-1. Buka `https://huggingface.co/spaces`.
-2. Klik `Create new Space`.
-3. Isi nama, misalnya `tiktok-battle-royale-overlay`.
-4. Pilih SDK: `Docker`.
-5. Visibility bisa `Public`.
-6. Klik `Create Space`.
-
-## 2. Push Project ke Space
-
-Di halaman Space, copy Git URL. Bentuknya biasanya:
-
-```text
-https://huggingface.co/spaces/USERNAME/tiktok-battle-royale-overlay
-```
-
-Lalu dari PowerShell:
+## Push Manual
 
 ```powershell
 cd C:\Users\Rizal\tiktok-battle-royale-overlay
-git remote add hf https://huggingface.co/spaces/USERNAME/tiktok-battle-royale-overlay
+npm run check
 git push hf main
 ```
 
-Kalau Hugging Face meminta login, buat access token di:
+## Push Otomatis
 
-```text
-https://huggingface.co/settings/tokens
+```powershell
+npm run deploy -- -Message "Deploy backend"
 ```
 
-Gunakan username Hugging Face sebagai username, dan token sebagai password.
-
-## 3. Tunggu Build
-
-Di tab `Logs`, tunggu sampai build selesai dan Space status menjadi `Running`.
-
-URL app akan seperti:
+Atau double-click:
 
 ```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space
+Deploy Backend.cmd
 ```
 
-## 4. Test Endpoint
+## Endpoint
 
 ```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space/health
+https://rzl92-tiktok-battle-royale-overlay.hf.space/health
+https://rzl92-tiktok-battle-royale-overlay.hf.space/webhook1?username={nickname}
+https://rzl92-tiktok-battle-royale-overlay.hf.space/webhook2?username={nickname}&coins={giftCount}
+https://rzl92-tiktok-battle-royale-overlay.hf.space/webhook3?username={nickname}
+https://rzl92-tiktok-battle-royale-overlay.hf.space/reset
+https://rzl92-tiktok-battle-royale-overlay.hf.space/debug-last
 ```
 
-Join:
-
-```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space/webhook1?username=tester
-```
-
-Overlay:
-
-```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space/client/overlay.html
-```
-
-## 5. TikFinity Webhooks
-
-Join:
-
-```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space/webhook1?username={nickname}
-```
-
-Gift:
-
-```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space/webhook2?username={nickname}&coins={coins}
-```
-
-Ultimate:
-
-```text
-https://USERNAME-tiktok-battle-royale-overlay.hf.space/webhook3?username={nickname}
-```
-
-## Notes
-
-Free hosting can sleep or rebuild, so open the overlay a few minutes before live. In-memory game state resets whenever the container restarts.
+Jika `{nickname}` tidak diganti oleh TikFinity, backend akan membalas error diagnostic. Gunakan field yang benar dari TikFinity, atau kirim body JSON dengan salah satu field yang didukung: `username`, `nickname`, `uniqueId`, `userId`, `displayName`, atau `name`.

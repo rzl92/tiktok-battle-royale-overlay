@@ -7,8 +7,8 @@ const root = document.getElementById("overlayRoot");
 
 const params = new URLSearchParams(window.location.search);
 const backendUrl = (params.get("backend") || window.OVERLAY_BACKEND_URL || "").trim().replace(/\/$/, "");
+const socketUrl = backendUrl || window.location.origin;
 
-// Connection status indicator
 const statusDot = document.createElement("div");
 statusDot.style.position = "fixed";
 statusDot.style.top = "10px";
@@ -21,8 +21,6 @@ statusDot.style.zIndex = "9999";
 statusDot.title = "Connection Status";
 document.body.appendChild(statusDot);
 
-const socketUrl = backendUrl || window.location.origin;
-
 console.log("Initializing Socket.IO to:", socketUrl);
 
 const socket = io(socketUrl, {
@@ -32,22 +30,22 @@ const socket = io(socketUrl, {
 });
 
 socket.on("connect", () => {
-  console.log("✅ Socket connected to:", socket.id);
+  console.log("Socket connected:", socket.id);
   statusDot.style.backgroundColor = "#00ff00";
 });
 
 socket.on("disconnect", (reason) => {
-  console.warn("❌ Socket disconnected:", reason);
+  console.warn("Socket disconnected:", reason);
   statusDot.style.backgroundColor = "#ff0000";
 });
 
 socket.on("connect_error", (err) => {
-  console.error("⚠️ Connection error:", err.message);
+  console.error("Socket connection error:", err.message);
   statusDot.style.backgroundColor = "#ffaa00";
 });
 
 socket.on("debug", (msg) => {
-  console.log("🖥️ Server Log:", msg);
+  console.log("Server log:", msg);
   const notification = document.createElement("div");
   notification.style.position = "fixed";
   notification.style.bottom = "20px";
@@ -79,7 +77,7 @@ socket.on("state", (state) => {
   latestState = state;
   renderer.setState(state);
   ui.updateLeaderboard(state.leaderboard || []);
-  ui.updateWinner(state.roundWinner);
+  ui.updateWinner(state.roundWinner, state.resetAt);
 });
 
 socket.on("events", (events) => {

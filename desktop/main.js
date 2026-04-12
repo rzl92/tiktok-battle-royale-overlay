@@ -1,22 +1,15 @@
 import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import express from "express";
-import cors from "cors";
-import { createServer } from "node:http";
-import { Server } from "socket.io";
 import { app, BrowserWindow, shell } from "electron";
-import { gameConfig } from "../config/gameConfig.js";
-import { PlayerManager } from "../server/game/PlayerManager.js";
-import { BattleEngine } from "../server/game/BattleEngine.js";
-import { createWebhookRouter } from "../server/routes/webhooks.js";
-import { createSimulatorRouter } from "../server/routes/simulator.js";
+import { createBattleServer } from "../server/createApp.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.join(__dirname, "..");
 const localPort = Number(process.env.DESKTOP_PORT || 3000);
-const backendUrl = String(process.env.BACKEND_URL || process.env.OVERLAY_BACKEND_URL || "")
+const defaultBackendUrl = "https://rzl92-tiktok-battle-royale-overlay.hf.space";
+const backendUrl = String(process.env.BACKEND_URL ?? process.env.OVERLAY_BACKEND_URL ?? defaultBackendUrl)
   .trim()
   .replace(/\/$/, "");
 
@@ -25,62 +18,11 @@ let mainWindow;
 let simulatorWindow;
 
 async function startLocalServer() {
-  const expressApp = express();
-  httpServer = createServer(expressApp);
-
-  const io = new Server(httpServer, {
-    cors: { origin: "*" }
-  });
-
-  expressApp.disable("x-powered-by");
-  expressApp.use(cors({ origin: "*" }));
-  expressApp.use(express.json({ limit: "256kb" }));
-  expressApp.use(express.urlencoded({ extended: true }));
-
-  const playerManager = new PlayerManager(gameConfig);
-  const battleEngine = new BattleEngine({ io, playerManager, config: gameConfig });
-
-  expressApp.use("/assets", express.static(path.join(rootDir, "assets")));
-  expressApp.use("/client", express.static(path.join(rootDir, "client")));
-  expressApp.use("/", createWebhookRouter({ playerManager, battleEngine }));
-  expressApp.use("/", createSimulatorRouter({ playerManager, battleEngine }));
-
-  expressApp.get("/avatar-proxy", async (req, res) => {
-    const url = String(req.query.url || "").trim();
-    if (!url.startsWith("https://") && !url.startsWith("http://")) {
-      return res.status(400).end("Bad url");
-    }
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 7000);
-      const upstream = await fetch(url, {
-        signal: controller.signal,
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; TikTokBattleRoyaleBot/1.0)" }
-      });
-      clearTimeout(timer);
-      const ct = upstream.headers.get("content-type") || "image/jpeg";
-      if (!ct.startsWith("image/")) return res.status(400).end("Not an image");
-      res.setHeader("Content-Type", ct);
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      res.end(Buffer.from(await upstream.arrayBuffer()));
-    } catch {
-      res.status(502).end("Proxy error");
-    }
-  });
-
-  expressApp.get("/health", (req, res) => {
-    res.json({ ok: true, players: playerManager.getAlivePlayers().length, uptime: process.uptime() });
-  });
-
-  expressApp.get("/", (req, res) => res.redirect("/client/overlay.html"));
-
-  io.on("connection", (socket) => {
-    socket.emit("config", { config: gameConfig, transparent: false });
-    socket.emit("state", battleEngine.getSnapshot());
-    socket.emit("events", battleEngine.getRecentEvents());
-  });
-
-  battleEngine.start(Number(process.env.TICK_RATE || 30));
+  ({ httpServer } = createBattleServer({
+    rootDir,
+    staticClient: true,
+    transparent: false
+  }));
 
   await new Promise((resolve, reject) => {
     httpServer.listen(localPort, "127.0.0.1", resolve);
@@ -137,7 +79,9 @@ function openSimulatorWindow() {
     }
   });
 
-  simulatorWindow.loadURL(`http://127.0.0.1:${localPort}/client/simulator.html`);
+  const simulatorUrl = new URL(`http://127.0.0.1:${localPort}/client/simulator.html`);
+  if (backendUrl) simulatorUrl.searchParams.set("backend", backendUrl);
+  simulatorWindow.loadURL(simulatorUrl.toString());
   simulatorWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.includes("/client/overlay.html")) {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
