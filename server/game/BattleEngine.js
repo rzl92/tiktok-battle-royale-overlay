@@ -17,8 +17,19 @@ export class BattleEngine {
   }
 
   start(tickRate) {
-    const interval = 1000 / tickRate;
-    setInterval(() => this.tick(), interval);
+    // Drift-compensating loop: each iteration schedules the NEXT tick at
+    // (expected - now) so late fires are automatically corrected without
+    // accumulating lag. More consistent than setInterval on Windows where
+    // the 15.6 ms timer floor makes setInterval(16.67) fire at ~27-32 ms.
+    const msPerTick = 1000 / tickRate;
+    let expected = Date.now() + msPerTick;
+    const loop = () => {
+      this.tick();
+      expected += msPerTick;
+      const delay = Math.max(0, expected - Date.now());
+      setTimeout(loop, delay);
+    };
+    setTimeout(loop, msPerTick);
   }
 
   tick() {

@@ -1,8 +1,8 @@
 const TWO_PI = Math.PI * 2;
 const MAX_EFFECTS = 70;
-// At 60 TPS (16ms/tick), 40ms = ~2.5 ticks buffer — enough to absorb jitter
-// while keeping visual lag minimal.
-const INTERPOLATION_DELAY_MS = 40;
+// At 60 TPS (16ms/tick), 60ms = ~3.6 ticks buffer — enough to absorb the
+// 31ms max-jitter Windows timers produce without falling into extrapolation.
+const INTERPOLATION_DELAY_MS = 60;
 // How far ahead to extrapolate when no new server sample has arrived.
 // 120ms handles brief packet drops without freezing motion.
 const MAX_EXTRAPOLATION_MS = 120;
