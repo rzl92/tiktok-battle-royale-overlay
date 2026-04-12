@@ -56,7 +56,7 @@ export class BattleEngine {
       const nx = dx / distance;
       const ny = dy / distance;
 
-      // Effective attack range: use whichever is larger — the stored attackRange stat OR
+      // Effective attack range: use whichever is larger ? the stored attackRange stat OR
       // the actual physical contact distance between the two tops (radius + target.radius).
       // Without this, a small top facing a giant can never enter attack mode because the
       // giant's body pushes it back before it reaches its own small attackRange threshold.
@@ -76,7 +76,7 @@ export class BattleEngine {
         this.tryAttack(player, target, now);
       }
 
-      // Laser fires regardless of melee range — separate cooldown
+      // Laser fires regardless of melee range ? separate cooldown
       this.tryFireLaser(player, target, now, players);
     }
 
@@ -109,7 +109,7 @@ export class BattleEngine {
   }
 
   tryAttack(attacker, target, now) {
-    // Jitter ±22% so attack timing feels natural and asymmetric
+    // Jitter ?22% so attack timing feels natural and asymmetric
     const jitter = 0.78 + Math.random() * 0.44;
     const cooldown = this.config.combat.attackCooldownMs * attacker.classConfig.attackCooldownMultiplier * jitter;
     if (now - attacker.lastAttackAt < cooldown) return;
@@ -117,10 +117,7 @@ export class BattleEngine {
 
     const variance = 0.85 + Math.random() * 0.35;
     const rawDamage = Math.max(1, Math.floor(attacker.damage * variance * target.classConfig.damageTakenMultiplier));
-    // Every top can always chip the target: minimum 1% of target's current HP per hit.
-    // This ensures no top is immortal regardless of HP gap, while big tops still dominate.
-    const minDamage = Math.max(1, Math.ceil(target.hp * 0.010));
-    const damage = Math.max(rawDamage, minDamage);
+    const damage = rawDamage;
     this.damagePlayer({ attacker, target, damage, type: attacker.className === "Mage" ? "burst" : "strike" });
 
     const dx = target.x - attacker.x;

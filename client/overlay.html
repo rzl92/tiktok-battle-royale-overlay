@@ -11,7 +11,7 @@
       <canvas id="arena" width="1080" height="1920" aria-label="Battle royale arena"></canvas>
       <section id="hud">
         <div id="leaderboardPanel">
-          <h2>Top Viewer</h2>
+          <h2>Top Players</h2>
           <ol id="leaderboard"></ol>
         </div>
 
@@ -31,7 +31,7 @@
                 <span>Auto reset after winner</span>
               </label>
               <div class="countdownDuration">
-                <input id="countdownSeconds" type="number" min="3" max="120" value="15" />
+                <input id="countdownSeconds" type="number" min="0" max="120" value="15" />
                 <span>seconds</span>
               </div>
             </div>
@@ -58,38 +58,28 @@
               <span>Join player. Body: <code>{"username":"{nickname}"}</code></span>
             </div>
             <div class="webhookRow">
-              <code>POST /join</code>
-              <span>Join alias. Body: <code>{"username":"{nickname}"}</code></span>
-            </div>
-            <div class="webhookRow">
               <code>POST /webhook2</code>
               <span>Gift boost. Body: <code>{"username":"{nickname}","coins":"{giftCount}"}</code></span>
             </div>
             <div class="webhookRow">
-              <code>POST /gift</code>
-              <span>Gift alias. Body: <code>{"username":"{nickname}","coins":"{giftCount}"}</code></span>
-            </div>
-            <div class="webhookRow">
               <code>POST /webhook3</code>
               <span>Ultimate attack. Body: <code>{"username":"{nickname}"}</code></span>
-            </div>
-            <div class="webhookRow">
-              <code>POST /ultimate</code>
-              <span>Ultimate alias. Body: <code>{"username":"{nickname}"}</code></span>
             </div>
           </section>
 
           <section class="settingsSection guideSection">
             <h3>Setup Tikfinity</h3>
             <p>Action type: <code>HTTP Request</code>. Method: <code>POST</code>. Content-Type: <code>application/json</code>.</p>
-            <p>Example gift URL: <code id="giftWebhookUrl">http://localhost:3000/webhook2</code></p>
+            <p>Join URL: <code id="joinWebhookUrl">http://localhost:3000/webhook1</code></p>
+            <p>Gift URL: <code id="giftWebhookUrl">http://localhost:3000/webhook2</code></p>
+            <p>Ultimate URL: <code id="ultimateWebhookUrl">http://localhost:3000/webhook3</code></p>
             <p style="margin-top:6px">Overlay OBS: <code id="overlayUrl">http://localhost:3000/client/overlay.html</code></p>
           </section>
 
           <section class="settingsSection guideSection">
             <h3>Tools</h3>
             <div class="guideActions">
-              <a href="/simulator" target="_blank" rel="noopener">Open Simulator</a>
+              <a id="simulatorLink" href="/simulator" target="_blank" rel="noopener">Open Simulator</a>
               <a href="/debug-last" target="_blank" rel="noopener">Debug Last Webhooks</a>
               <a href="/health" target="_blank" rel="noopener">Health Check</a>
             </div>

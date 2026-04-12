@@ -1,6 +1,6 @@
 const TWO_PI = Math.PI * 2;
 const MAX_EFFECTS = 70;
-const INTERPOLATION_DELAY_MS = 100;
+const INTERPOLATION_DELAY_MS = 120;
 const MAX_EXTRAPOLATION_MS = 50;
 const PLAYER_SAMPLE_LIMIT = 8;
 
@@ -166,7 +166,6 @@ export class Renderer {
   render(time) {
     const dt = Math.min(40, time - (this.lastTime || time));
     this.lastTime = time;
-
     const ctx = this.ctx;
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -179,7 +178,7 @@ export class Renderer {
     ctx.drawImage(this.background, 0, 0, width, height);
 
     const sorted = [...displayPlayers].sort((a, b) => a.radius - b.radius);
-    const nameBudget = detail === "low" ? 6 : detail === "medium" ? 12 : 999;
+    const nameBudget = detail === "ultra" ? 3 : detail === "low" ? 5 : detail === "medium" ? 10 : 999;
     const featured = new Set(
       [...displayPlayers]
         .sort((a, b) => b.kills - a.kills || b.hp - a.hp)
@@ -250,8 +249,13 @@ export class Renderer {
     const x = screen.x;
     const y = screen.y + wobble;
 
+    if (detail === "ultra") {
+      this.drawFastTop(x, y, r, player, spin, showName);
+      return;
+    }
+
     if (detail === "low") {
-      this.drawSimpleTop(x, y, r, player, spin, showName);
+      this.drawFastTop(x, y, r, player, spin, showName);
       return;
     }
 
@@ -323,6 +327,52 @@ export class Renderer {
     ctx.restore();
 
     if (showName) this.drawNameplate(player, x, y, r);
+  }
+
+  drawFastTop(x, y, r, player, spin, showName) {
+    const ctx = this.ctx;
+    const blades = player.auraLevel > 0 ? 5 : 4;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spin);
+
+    if (player.auraLevel > 0) {
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = this.getAuraColor(player);
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.25, 0, TWO_PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = player.color;
+    ctx.strokeStyle = "#061016";
+    ctx.lineWidth = Math.max(1.5, r * 0.045);
+    for (let i = 0; i < blades; i += 1) {
+      const angle = (i / blades) * TWO_PI;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle - 0.18) * r * 0.55, Math.sin(angle - 0.18) * r * 0.55);
+      ctx.lineTo(Math.cos(angle) * r * 1.18, Math.sin(angle) * r * 1.18);
+      ctx.lineTo(Math.cos(angle + 0.18) * r * 0.55, Math.sin(angle + 0.18) * r * 0.55);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = player.accent;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.72, 0, TWO_PI);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#eefaff";
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(3, r * 0.18), 0, TWO_PI);
+    ctx.fill();
+    ctx.restore();
+
+    if (showName && r > 16) this.drawCompactName(player, x, y, r);
   }
 
   drawAttackRing(r, player, profile) {
@@ -558,6 +608,20 @@ export class Renderer {
     ctx.restore();
   }
 
+  drawCompactName(player, x, y, r) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(3, 8, 13, 0.68)";
+    roundRect(ctx, x - 42, y - r - 25, 84, 19, 6);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 10px system-ui";
+    ctx.fillText(trimName(player.username), x, y - r - 15);
+    ctx.restore();
+  }
+
   drawEffects(dt, detail) {
     const ctx = this.ctx;
     this.effects = this.effects.filter((effect) => {
@@ -574,7 +638,7 @@ export class Renderer {
       ctx.save();
       ctx.globalCompositeOperation = effect.kind === "ultimate" ? "lighter" : "source-over";
 
-      if (effect.kind === "spark" && detail !== "low") {
+      if (effect.kind === "spark" && detail !== "low" && detail !== "ultra") {
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         // 8 spokes radiating from contact point, half spread symmetrically
@@ -602,7 +666,7 @@ export class Renderer {
         ctx.restore();
       }
 
-      if (effect.kind === "hit" && detail !== "low") {
+      if (effect.kind === "hit" && detail !== "low" && detail !== "ultra") {
         ctx.strokeStyle = `rgba(235, 251, 255, ${0.85 * t})`;
         ctx.lineWidth = 2 + 7 * t;
         ctx.beginPath();
@@ -615,12 +679,12 @@ export class Renderer {
         ctx.fillText(`-${effect.damage}`, point.x, point.y - 26 * (1 - t));
       }
 
-      if (effect.kind === "laser") {
+      if (effect.kind === "laser" && detail !== "ultra") {
         const endPt = this.worldToScreen({ x: effect.tx, y: effect.ty });
         drawElectricBolt(ctx, point.x, point.y, endPt.x, endPt.y, t, point.scale);
       }
 
-      if ((effect.kind === "burst" || effect.kind === "power") && detail !== "low") {
+      if ((effect.kind === "burst" || effect.kind === "power") && detail !== "low" && detail !== "ultra") {
         ctx.globalCompositeOperation = "lighter";
         ctx.strokeStyle = hexToRgba(effect.color, 0.75 * t);
         ctx.lineWidth = 4 + 8 * t;
@@ -629,7 +693,7 @@ export class Renderer {
         ctx.stroke();
       }
 
-      if (effect.kind === "lightning") {
+      if (effect.kind === "lightning" && detail !== "ultra") {
         ctx.globalCompositeOperation = "lighter";
         for (const ray of effect.rays) {
           const ex = effect.x + Math.cos(ray.angle) * ray.length;
@@ -785,7 +849,8 @@ function strongest(players = []) {
 }
 
 function getDetailLevel(count) {
-  if (count >= 90) return "low";
+  if (count >= 140) return "ultra";
+  if (count >= 70) return "low";
   if (count >= 45) return "medium";
   return "high";
 }

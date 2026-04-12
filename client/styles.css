@@ -50,11 +50,12 @@ body {
   pointer-events: none;
 }
 
-/* ── Leaderboard – bottom left ──────────────────────────────── */
+/* ?? Leaderboard ? bottom left ???????????????????????????????? */
 #leaderboardPanel {
   position: absolute;
   bottom: 16px;
-  left: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   width: min(230px, calc(100vw - 32px));
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -123,7 +124,7 @@ body {
   font-size: 11px;
 }
 
-/* ── Gear / settings button – top right ─────────────────── */
+/* ?? Gear / settings button ? top right ??????????????????? */
 #settingsButton {
   pointer-events: auto;
   position: absolute;
@@ -147,7 +148,7 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* ── Settings popup ──────────────────────────────────────── */
+/* ?? Settings popup ???????????????????????????????????????? */
 #settingsPanel {
   pointer-events: auto;
   position: absolute;
@@ -211,7 +212,7 @@ body {
   margin: 0 0 10px;
 }
 
-/* ── Audio controls (inside popup) ──────────────────────── */
+/* ?? Audio controls (inside popup) ???????????????????????? */
 #audioControls {
   display: grid;
   gap: 8px;
@@ -251,7 +252,7 @@ body {
   background: rgba(224, 43, 70, 0.88);
 }
 
-/* ── Guide content (inside popup) ───────────────────────── */
+/* ?? Guide content (inside popup) ????????????????????????? */
 .guideSection p,
 .webhookRow {
   color: #dce7f2;
@@ -302,7 +303,7 @@ body {
   font-weight: 900;
 }
 
-/* ── Countdown setting row ───────────────────────────────── */
+/* ?? Countdown setting row ????????????????????????????????? */
 .countdownRow {
   display: flex;
   flex-direction: column;
@@ -346,7 +347,7 @@ body {
   text-align: center;
 }
 
-/* ── Winner banner – compact ─────────────────────────────── */
+/* ?? Winner banner ? compact ??????????????????????????????? */
 #winnerBanner {
   position: absolute;
   top: 38%;
@@ -361,13 +362,22 @@ body {
   box-shadow: 0 0 36px rgba(255, 216, 77, 0.2);
 }
 
+#winnerBanner .winner-avatar-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 8px auto 6px;
+}
+
 #winnerBanner .winner-avatar {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 80px;
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  margin: 8px auto 6px;
+  margin: 0;
   border: 3px solid rgba(255, 216, 77, 0.8);
   box-shadow: 0 0 16px rgba(255, 216, 77, 0.4);
 }
@@ -386,6 +396,10 @@ body {
   font-size: 32px;
   font-weight: 900;
   color: var(--gold);
+}
+
+#winnerBanner .winner-avatar-wrap .winner-avatar-placeholder {
+  margin: 0;
 }
 
 #winnerBanner .winner-title {
@@ -425,7 +439,7 @@ body {
   color: var(--gold);
 }
 
-/* ── Simulator ───────────────────────────────────────────── */
+/* ?? Simulator ????????????????????????????????????????????? */
 .simulatorBody {
   overflow: auto;
   background: #0a0e13;
@@ -524,7 +538,7 @@ a {
 
   #leaderboardPanel {
     bottom: 8px;
-    left: 8px;
+    left: 50%;
   }
 
   .webhookRow {
