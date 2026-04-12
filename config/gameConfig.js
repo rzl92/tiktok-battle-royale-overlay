@@ -6,7 +6,7 @@ export const gameConfig = {
   },
   player: {
     baseHP: 100,
-    giftHPPerCoin: 25,
+    giftHPPerCoin: 10,
     baseRadius: 52,
     maxRenderedRadius: 340,
     respawnInvulnerabilityMs: 1200
@@ -16,7 +16,7 @@ export const gameConfig = {
       return 1 + Math.min(hp / 220, 12);
     },
     damage(hp, classConfig) {
-      const baseDamage = 1 + Math.floor(Math.max(0, hp - 100) / 100);
+      const baseDamage = hp <= 100 ? 1 : 2 + Math.floor(Math.max(0, hp - 101) / 100);
       return Math.max(1, Math.floor(baseDamage * classConfig.damageMultiplier));
     },
     attackRange(radius, classConfig) {

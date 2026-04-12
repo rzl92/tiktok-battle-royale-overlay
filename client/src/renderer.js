@@ -4,35 +4,10 @@ const INTERPOLATION_DELAY_MS = 120;
 const MAX_EXTRAPOLATION_MS = 50;
 const PLAYER_SAMPLE_LIMIT = 8;
 
-// 24-color vibrant palette ? each player gets a unique color derived from their ID hash
-const PLAYER_COLORS = [
-  { color: "#ff3d6e", accent: "#ffd0dc" },
-  { color: "#42d6ff", accent: "#caf5ff" },
-  { color: "#ff8c00", accent: "#ffe5cc" },
-  { color: "#44e87c", accent: "#cdfae0" },
-  { color: "#c060ff", accent: "#e8ccff" },
-  { color: "#f5d020", accent: "#fffacc" },
-  { color: "#ff2d55", accent: "#ffccd6" },
-  { color: "#00e5c9", accent: "#ccfff8" },
-  { color: "#ff6b35", accent: "#ffdecf" },
-  { color: "#3d7fff", accent: "#cce0ff" },
-  { color: "#ff30e8", accent: "#ffc0fb" },
-  { color: "#7fff00", accent: "#e8ffcc" },
-  { color: "#ff5e78", accent: "#ffd0d8" },
-  { color: "#d4ff3e", accent: "#f5ffcc" },
-  { color: "#ff00aa", accent: "#ffccee" },
-  { color: "#00aaff", accent: "#ccecff" },
-  { color: "#ffc200", accent: "#fff8cc" },
-  { color: "#ff4500", accent: "#ffd5cc" },
-  { color: "#8b2be2", accent: "#ddc0ff" },
-  { color: "#00ff88", accent: "#ccffe8" },
-  { color: "#ff0040", accent: "#ffccdb" },
-  { color: "#20f0e8", accent: "#ccfcfb" },
-  { color: "#ff80cc", accent: "#ffd6ef" },
-  { color: "#aaff00", accent: "#eeffcc" },
-];
-
+// HP tier palette. Players with the same HP range get the same color.
 const HP_COLORS = [
+  { color: "#68717d", accent: "#d5dbe2" },
+  { color: "#c7e8ff", accent: "#ffffff" },
   { color: "#42d6ff", accent: "#caf5ff" },
   { color: "#44e87c", accent: "#cdfae0" },
   { color: "#f5d020", accent: "#fffacc" },
@@ -257,7 +232,7 @@ export class Renderer {
     const ctx = this.ctx;
     const screen = this.worldToScreen(player);
     const r = Math.max(10, player.radius * screen.scale);
-    const profile = topProfile(player.id, player.className);
+    const profile = topProfile(player);
     const spin = time * profile.spin + player.x * 0.017;
     const wobble = Math.sin(time * 0.006 + player.y * 0.04) * r * 0.035;
     const x = screen.x;
@@ -270,6 +245,11 @@ export class Renderer {
 
     if (detail === "low") {
       this.drawFastTop(x, y, r, player, spin, showName);
+      return;
+    }
+
+    if (profile.blades <= 0) {
+      this.drawBareTop(x, y, r, player, spin, showName);
       return;
     }
 
@@ -294,7 +274,8 @@ export class Renderer {
 
   drawSimpleTop(x, y, r, player, spin, showName) {
     const ctx = this.ctx;
-    const blades = player.auraLevel > 0 ? 6 : 4;
+    const tier = hpTier(player.hp);
+    const blades = tier < 2 ? 0 : player.auraLevel > 0 ? 6 : 4;
     const auraColor = this.getAuraColor(player);
 
     ctx.save();
@@ -356,10 +337,40 @@ export class Renderer {
     if (showName && r > 16) this.drawCompactName(player, x, y, r);
   }
 
+  drawBareTop(x, y, r, player, spin, showName) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spin * 0.35);
+    ctx.fillStyle = player.color;
+    ctx.strokeStyle = "#061016";
+    ctx.lineWidth = Math.max(2, r * 0.055);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.86, r * 0.72, 0, 0, TWO_PI);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = player.accent;
+    ctx.globalAlpha = 0.72;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.38, 0, TWO_PI);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = "#eefaff";
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(3, r * 0.14), 0, TWO_PI);
+    ctx.fill();
+    ctx.restore();
+
+    if (showName && r > 16) this.drawCompactName(player, x, y, r);
+  }
+
   getFastTopSprite(player, r) {
     const bucketR = Math.max(10, Math.round(r / 4) * 4);
     const auraLevel = player.auraLevel > 0 ? 1 : 0;
-    const key = `${bucketR}:${player.color}:${player.accent}:${auraLevel}`;
+    const tier = hpTier(player.hp);
+    const key = `${bucketR}:${player.color}:${player.accent}:${auraLevel}:${tier}`;
     const cached = this.fastSpriteCache.get(key);
     if (cached) return cached;
 
@@ -370,9 +381,32 @@ export class Renderer {
     canvas.height = size;
     const ctx = canvas.getContext("2d", { alpha: true });
     const r2 = bucketR;
-    const blades = auraLevel ? 5 : 4;
+    const blades = tier < 2 ? 0 : Math.min(8, 3 + Math.floor(tier / 2) + auraLevel);
 
     ctx.translate(size / 2, size / 2);
+
+    if (blades <= 0) {
+      ctx.fillStyle = player.color;
+      ctx.strokeStyle = "#061016";
+      ctx.lineWidth = Math.max(1.5, r2 * 0.055);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r2 * 0.86, r2 * 0.72, 0, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = player.accent;
+      ctx.globalAlpha = 0.72;
+      ctx.beginPath();
+      ctx.arc(0, 0, r2 * 0.38, 0, TWO_PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#eefaff";
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(3, r2 * 0.14), 0, TWO_PI);
+      ctx.fill();
+      const sprite = { canvas, size };
+      this.fastSpriteCache.set(key, sprite);
+      return sprite;
+    }
 
     if (player.auraLevel > 0) {
       ctx.globalAlpha = 0.18;
@@ -878,14 +912,31 @@ function lerp(from, to, t) {
   return from + (to - from) * t;
 }
 
-function topProfile(id, className) {
-  const hash = stableHash(id);
-  return GEAR_PROFILES[hash % GEAR_PROFILES.length];
+function topProfile(player) {
+  const tier = hpTier(player.hp);
+  if (tier < 2) return { blades: 0, length: 0, width: 0, base: 0.78, panels: 0, hook: 0, spin: 0.007 };
+
+  const hash = stableHash(player.id);
+  const ranges = [
+    [0, 3],
+    [2, 7],
+    [4, 11],
+    [8, 15],
+    [12, 19]
+  ];
+  const range = ranges[Math.min(ranges.length - 1, Math.floor((tier - 2) / 2))];
+  const index = range[0] + (hash % (range[1] - range[0] + 1));
+  return GEAR_PROFILES[index];
 }
 
 function hpPalette(hp) {
-  const tier = Math.max(0, Math.min(HP_COLORS.length - 1, Math.floor(Math.max(100, hp) / 100) - 1));
-  return HP_COLORS[tier];
+  return HP_COLORS[hpTier(hp)];
+}
+
+function hpTier(hp) {
+  if (hp < 50) return 0;
+  if (hp <= 100) return 1;
+  return Math.max(2, Math.min(HP_COLORS.length - 1, Math.floor((hp - 1) / 100) + 1));
 }
 
 function strongest(players = []) {
