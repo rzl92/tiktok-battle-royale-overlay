@@ -293,7 +293,8 @@ export class Renderer {
     const maxHp = Math.max(1, player.maxSeenHP || player.hp || 1);
     const ratio = clamp(player.hp / maxHp, 0, 1);
     const ringRadius = r * (detail === "ultra" ? 1.04 : 1.1);
-    const width = Math.max(2, Math.min(9, r * (detail === "ultra" ? 0.035 : 0.055)));
+    const baseWidth = Math.max(2, Math.min(9, r * (detail === "ultra" ? 0.035 : 0.055)));
+    const width = baseWidth * 2;
     const auraColor = this.getAuraColor(player);
 
     ctx.save();
