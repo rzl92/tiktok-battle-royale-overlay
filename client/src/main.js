@@ -6,7 +6,7 @@ const canvas = document.getElementById("arena");
 const root = document.getElementById("overlayRoot");
 
 const params = new URLSearchParams(window.location.search);
-const backendUrl = (params.get("backend") || "").trim().replace(/\/$/, "");
+const backendUrl = (params.get("backend") || window.OVERLAY_BACKEND_URL || "").trim().replace(/\/$/, "");
 
 // Connection status indicator
 const statusDot = document.createElement("div");
@@ -21,8 +21,7 @@ statusDot.style.zIndex = "9999";
 statusDot.title = "Connection Status";
 document.body.appendChild(statusDot);
 
-const isDesktop = window.location.port === "3173";
-const socketUrl = (isDesktop && backendUrl) ? backendUrl : window.location.origin;
+const socketUrl = backendUrl || window.location.origin;
 
 console.log("Initializing Socket.IO to:", socketUrl);
 

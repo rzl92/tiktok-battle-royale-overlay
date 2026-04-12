@@ -3,12 +3,8 @@ const username = document.getElementById("username");
 const coins = document.getElementById("coins");
 const avatarUrl = document.getElementById("avatarUrl");
 const params = new URLSearchParams(window.location.search);
-const backendUrl = params.get("backend") || window.OVERLAY_BACKEND_URL || "";
+const backendUrl = (params.get("backend") || window.OVERLAY_BACKEND_URL || "").trim().replace(/\/$/, "");
 const openOverlayLink = document.getElementById("openOverlayLink");
-
-// In desktop mode, we should call our local proxy (port 3173)
-// In local dev mode, we should call the local server (port 3000)
-const isDesktop = window.location.port === "3173";
 
 if (backendUrl && openOverlayLink) {
   openOverlayLink.href = `/client/overlay.html?backend=${encodeURIComponent(backendUrl)}`;
@@ -36,13 +32,13 @@ document.addEventListener("click", async (event) => {
 });
 
 async function call(path) {
-  const response = await fetch(path);
+  const response = await fetch(`${backendUrl}${path}`);
   const data = await response.json();
   result.textContent = JSON.stringify(data, null, 2);
 }
 
 async function post(path, body) {
-  const response = await fetch(path, {
+  const response = await fetch(`${backendUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
@@ -56,9 +52,9 @@ async function spawnSwarm(power) {
   for (let i = 1; i <= 20; i += 1) {
     const name = `${prefix}_${Math.floor(Math.random() * 9999)}_${i}`;
     const avatarUrl = `https://api.dicebear.com/8.x/pixel-art/svg?seed=${encodeURIComponent(name)}`;
-    await fetch(`/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
+    await fetch(`${backendUrl}/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
     if (power && i <= 5) {
-      await fetch(`/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
+      await fetch(`${backendUrl}/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
     }
   }
   result.textContent = `${power ? "Power whales" : "Bots"} spawned.`;

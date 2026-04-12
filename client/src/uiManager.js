@@ -20,7 +20,7 @@ function saveSetting(key, value) {
 
 function getBackendUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("backend") || window.OVERLAY_BACKEND_URL || "";
+  return (params.get("backend") || window.OVERLAY_BACKEND_URL || "").trim().replace(/\/$/, "");
 }
 
 export class UIManager {
