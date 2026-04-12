@@ -40,7 +40,9 @@ export const gameConfig = {
     targetScanIntervalMs: 200,
     attackCooldownMs: 650,
     maxPlayers: 200,
-    idleWanderTurnChance: 0.03
+    idleWanderTurnChance: 0.03,
+    giantSlayerBonusHpStep: 500,
+    giantSlayerMaxBonus: 12
   },
   physics: {
     friction: 0.988,

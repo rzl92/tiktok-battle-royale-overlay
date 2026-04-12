@@ -117,7 +117,7 @@ export class BattleEngine {
 
     const variance = 0.85 + Math.random() * 0.35;
     const rawDamage = Math.max(1, Math.floor(attacker.damage * variance * target.classConfig.damageTakenMultiplier));
-    const damage = rawDamage;
+    const damage = rawDamage + this.giantSlayerBonus(attacker, target);
     this.damagePlayer({ attacker, target, damage, type: attacker.className === "Mage" ? "burst" : "strike" });
 
     const dx = target.x - attacker.x;
@@ -174,6 +174,14 @@ export class BattleEngine {
       ty: shooter.y + ny * hitDist,
       color: shooter.classConfig.color
     });
+  }
+
+  giantSlayerBonus(attacker, target) {
+    const hpGap = Math.max(0, target.hp - attacker.hp);
+    if (hpGap <= 0) return 0;
+    const step = Math.max(1, this.config.combat.giantSlayerBonusHpStep || 500);
+    const maxBonus = Math.max(0, this.config.combat.giantSlayerMaxBonus || 0);
+    return Math.min(maxBonus, Math.floor(hpGap / step));
   }
 
   damagePlayer({ attacker, target, damage, type }) {

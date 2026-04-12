@@ -32,15 +32,29 @@ const PLAYER_COLORS = [
   { color: "#aaff00", accent: "#eeffcc" },
 ];
 
+const HP_COLORS = [
+  { color: "#42d6ff", accent: "#caf5ff" },
+  { color: "#44e87c", accent: "#cdfae0" },
+  { color: "#f5d020", accent: "#fffacc" },
+  { color: "#ff8c00", accent: "#ffe5cc" },
+  { color: "#ff3d6e", accent: "#ffd0dc" },
+  { color: "#c060ff", accent: "#e8ccff" },
+  { color: "#00e5c9", accent: "#ccfff8" },
+  { color: "#3d7fff", accent: "#cce0ff" },
+  { color: "#ff30e8", accent: "#ffc0fb" },
+  { color: "#ffd84d", accent: "#fff6c2" }
+];
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d", { alpha: true });
+    this.ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
     this.config = null;
     this.state = { players: [], leaderboard: [] };
     this.effects = [];
     this.displayPlayers = new Map();
     this.avatarCache = new Map();
+    this.fastSpriteCache = new Map();
     this.camera = { x: 540, y: 960 };
     this.lastTime = 0;
     this.background = document.createElement("canvas");
@@ -66,8 +80,8 @@ export class Renderer {
     for (const player of players) {
       alive.add(player.id);
       const current = this.displayPlayers.get(player.id);
+      const palette = hpPalette(player.hp);
       if (!current) {
-        const palette = PLAYER_COLORS[stableHash(player.id) % PLAYER_COLORS.length];
         this.displayPlayers.set(player.id, {
           ...player,
           samples: [{ time: now, x: player.x, y: player.y }],
@@ -84,8 +98,8 @@ export class Renderer {
           x: current.x,
           y: current.y,
           samples: current.samples,
-          color: current.color,   // preserve per-player palette color
-          accent: current.accent
+          color: palette.color,
+          accent: palette.accent
         });
       }
     }
@@ -331,30 +345,53 @@ export class Renderer {
 
   drawFastTop(x, y, r, player, spin, showName) {
     const ctx = this.ctx;
-    const blades = player.auraLevel > 0 ? 5 : 4;
+    const sprite = this.getFastTopSprite(player, r);
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(spin);
+    ctx.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size);
+    ctx.restore();
+
+    if (showName && r > 16) this.drawCompactName(player, x, y, r);
+  }
+
+  getFastTopSprite(player, r) {
+    const bucketR = Math.max(10, Math.round(r / 4) * 4);
+    const auraLevel = player.auraLevel > 0 ? 1 : 0;
+    const key = `${bucketR}:${player.color}:${player.accent}:${auraLevel}`;
+    const cached = this.fastSpriteCache.get(key);
+    if (cached) return cached;
+
+    const pad = bucketR * 0.3;
+    const size = Math.ceil((bucketR * 2.6 + pad * 2) / 2) * 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    const r2 = bucketR;
+    const blades = auraLevel ? 5 : 4;
+
+    ctx.translate(size / 2, size / 2);
 
     if (player.auraLevel > 0) {
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = this.getAuraColor(player);
       ctx.beginPath();
-      ctx.arc(0, 0, r * 1.25, 0, TWO_PI);
+      ctx.arc(0, 0, r2 * 1.25, 0, TWO_PI);
       ctx.fill();
       ctx.globalAlpha = 1;
     }
 
     ctx.fillStyle = player.color;
     ctx.strokeStyle = "#061016";
-    ctx.lineWidth = Math.max(1.5, r * 0.045);
+    ctx.lineWidth = Math.max(1.5, r2 * 0.045);
     for (let i = 0; i < blades; i += 1) {
       const angle = (i / blades) * TWO_PI;
       ctx.beginPath();
-      ctx.moveTo(Math.cos(angle - 0.18) * r * 0.55, Math.sin(angle - 0.18) * r * 0.55);
-      ctx.lineTo(Math.cos(angle) * r * 1.18, Math.sin(angle) * r * 1.18);
-      ctx.lineTo(Math.cos(angle + 0.18) * r * 0.55, Math.sin(angle + 0.18) * r * 0.55);
+      ctx.moveTo(Math.cos(angle - 0.18) * r2 * 0.55, Math.sin(angle - 0.18) * r2 * 0.55);
+      ctx.lineTo(Math.cos(angle) * r2 * 1.18, Math.sin(angle) * r2 * 1.18);
+      ctx.lineTo(Math.cos(angle + 0.18) * r2 * 0.55, Math.sin(angle + 0.18) * r2 * 0.55);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -362,17 +399,19 @@ export class Renderer {
 
     ctx.fillStyle = player.accent;
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.72, 0, TWO_PI);
+    ctx.arc(0, 0, r2 * 0.72, 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = "#eefaff";
     ctx.beginPath();
-    ctx.arc(0, 0, Math.max(3, r * 0.18), 0, TWO_PI);
+    ctx.arc(0, 0, Math.max(3, r2 * 0.18), 0, TWO_PI);
     ctx.fill();
-    ctx.restore();
 
-    if (showName && r > 16) this.drawCompactName(player, x, y, r);
+    const sprite = { canvas, size };
+    this.fastSpriteCache.set(key, sprite);
+    if (this.fastSpriteCache.size > 160) this.fastSpriteCache.delete(this.fastSpriteCache.keys().next().value);
+    return sprite;
   }
 
   drawAttackRing(r, player, profile) {
@@ -842,6 +881,11 @@ function lerp(from, to, t) {
 function topProfile(id, className) {
   const hash = stableHash(id);
   return GEAR_PROFILES[hash % GEAR_PROFILES.length];
+}
+
+function hpPalette(hp) {
+  const tier = Math.max(0, Math.min(HP_COLORS.length - 1, Math.floor(Math.max(100, hp) / 100) - 1));
+  return HP_COLORS[tier];
 }
 
 function strongest(players = []) {
