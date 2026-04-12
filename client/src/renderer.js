@@ -5,7 +5,7 @@ const MAX_EFFECTS = 70;
 const INTERPOLATION_DELAY_MS = 60;
 // How far ahead to extrapolate when no new server sample has arrived.
 // 120ms handles brief packet drops without freezing motion.
-const MAX_EXTRAPOLATION_MS = 120;
+const MAX_EXTRAPOLATION_MS = 260;
 // How many server snapshots to keep per player for interpolation.
 const PLAYER_SAMPLE_LIMIT = 16;
 
@@ -243,10 +243,10 @@ export class Renderer {
         player.y = target.y;
         player._posInit = true;
       } else {
-        // Exponential smoothing: converges in ~20ms so motion stays
-        // responsive, but single-tick position corrections (from collision
-        // push) are absorbed over several frames instead of blinking.
-        const alpha = Math.min(1, dt / 20);
+        // Frame-rate independent smoothing (~90ms half-life). Softer than
+        // before so single-tick server jerks (collision bounces, phase
+        // changes) don't read as blinks.
+        const alpha = 1 - Math.pow(0.001, dt / 600);
         player.x += (target.x - player.x) * alpha;
         player.y += (target.y - player.y) * alpha;
       }

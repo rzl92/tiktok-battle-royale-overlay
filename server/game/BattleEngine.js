@@ -151,16 +151,22 @@ export class BattleEngine {
   }
 
   wanderNatural(player, now, dt) {
-    if (!player.nextImpulseAt || now >= player.nextImpulseAt) {
-      const angle = Math.random() * Math.PI * 2;
-      const force = player.speed * (0.35 + Math.random() * 0.35);
-      player.vx += Math.cos(angle) * force;
-      player.vy += Math.sin(angle) * force;
-      player.nextImpulseAt = now + 350 + Math.random() * 350;
+    // Smooth heading drift: we steer toward a slowly rotating desired direction
+    // instead of snapping velocity. This keeps wander motion continuous.
+    if (typeof player.wanderHeading !== "number") {
+      player.wanderHeading = Math.atan2(player.vy, player.vx) || Math.random() * Math.PI * 2;
     }
-    const jitter = this.config.physics.spinJitter;
-    player.vx += (Math.random() - 0.5) * player.speed * jitter;
-    player.vy += (Math.random() - 0.5) * player.speed * jitter;
+    if (!player.nextImpulseAt || now >= player.nextImpulseAt) {
+      // Nudge heading by a small random delta (±45°) rather than pick a fresh angle.
+      player.wanderHeading += (Math.random() - 0.5) * (Math.PI / 2);
+      player.nextImpulseAt = now + 700 + Math.random() * 900;
+    }
+    // Continuous heading drift for organic curve.
+    player.wanderHeading += (Math.random() - 0.5) * 0.08;
+    const desiredSpeed = player.speed * 0.55;
+    const desiredX = Math.cos(player.wanderHeading) * desiredSpeed;
+    const desiredY = Math.sin(player.wanderHeading) * desiredSpeed;
+    this.steer(player, desiredX, desiredY);
     this.move(player, dt);
   }
 
@@ -616,8 +622,21 @@ export class BattleEngine {
     // Force brief disengage so tops don't stick after a hit.
     const cooldown = this.config.combat.postCollisionWanderMs || [400, 700];
     const until = Date.now() + randRange(cooldown);
-    if (a.phase !== "wander" || a.phaseEndsAt < until) { a.phase = "wander"; a.phaseEndsAt = until; a.nextImpulseAt = 0; }
-    if (b.phase !== "wander" || b.phaseEndsAt < until) { b.phase = "wander"; b.phaseEndsAt = until; b.nextImpulseAt = 0; }
+    // Force disengage but don't fire a fresh impulse on the next tick —
+    // that stacks on the bounce and looks like a blink. Align heading
+    // with current velocity so wander drifts naturally outward.
+    if (a.phase !== "wander" || a.phaseEndsAt < until) {
+      a.phase = "wander";
+      a.phaseEndsAt = until;
+      a.nextImpulseAt = until + 300;
+      a.wanderHeading = Math.atan2(a.vy, a.vx);
+    }
+    if (b.phase !== "wander" || b.phaseEndsAt < until) {
+      b.phase = "wander";
+      b.phaseEndsAt = until;
+      b.nextImpulseAt = until + 300;
+      b.wanderHeading = Math.atan2(b.vy, b.vx);
+    }
 
     // Spark at contact surface point (only if collision has meaningful speed)
     const impactSpeed = Math.abs(separatingVelocity);
