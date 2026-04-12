@@ -2,12 +2,14 @@
   "name": "tiktok-battle-royale-overlay",
   "version": "1.0.0",
   "description": "TikTok Live interactive battle royale auto-battler overlay for OBS Browser Source.",
-  "main": "server/index.js",
+  "main": "desktop/main.js",
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "check": "node --check server/index.js && node --check server/game/BattleEngine.js && node --check server/game/PlayerManager.js && node --check server/game/AvatarResolver.js && node --check server/routes/webhooks.js && node --check server/routes/simulator.js"
+    "desktop": "electron desktop/main.js",
+    "desktop:build": "electron-builder --win portable",
+    "check": "node --check server/index.js && node --check server/game/BattleEngine.js && node --check server/game/PlayerManager.js && node --check server/game/AvatarResolver.js && node --check server/routes/webhooks.js && node --check client/src/main.js && node --check client/src/renderer.js && node --check desktop/main.js"
   },
   "keywords": [
     "tiktok",
@@ -26,5 +28,25 @@
     "helmet": "^8.0.0",
     "socket.io": "^4.8.1"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.rzl92.tiktokbattleroyaleoverlay",
+    "productName": "TikTok Battle Royale Overlay",
+    "asar": false,
+    "files": [
+      "desktop/**/*",
+      "client/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable"
+      ]
+    }
+  }
 }

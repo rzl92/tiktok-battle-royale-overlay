@@ -4,7 +4,9 @@ import { UIManager } from "./uiManager.js";
 
 const canvas = document.getElementById("arena");
 const root = document.getElementById("overlayRoot");
-const socket = io();
+const params = new URLSearchParams(window.location.search);
+const backendUrl = params.get("backend") || window.OVERLAY_BACKEND_URL || "";
+const socket = backendUrl ? io(backendUrl) : io();
 
 const sound = new SoundManager();
 const ui = new UIManager(sound);

@@ -1,4 +1,6 @@
 node_modules/
+dist/
+*.lnk
 .env
 *.log
 assets/sounds/*.mp3
