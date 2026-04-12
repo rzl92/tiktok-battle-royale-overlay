@@ -346,6 +346,20 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(x, y);
+    
+    // Spinning motion blur arcs
+    ctx.save();
+    ctx.rotate(spin * 2.5);
+    ctx.strokeStyle = hexToRgba(player.accent, 0.4);
+    ctx.lineWidth = Math.max(1, r * 0.05);
+    ctx.lineCap = "round";
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(0, 0, r * (0.8 + i * 0.1), 0, 1.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
     ctx.rotate(spin * 0.35);
     ctx.fillStyle = player.color;
     ctx.strokeStyle = "#061016";
@@ -393,7 +407,7 @@ export class Renderer {
     canvas.height = size;
     const ctx = canvas.getContext("2d", { alpha: true });
     const r2 = bucketR;
-    const blades = tier < 2 ? 0 : Math.min(8, 3 + Math.floor(tier / 2) + auraLevel);
+    const blades = Math.min(8, 3 + Math.floor(tier / 2) + auraLevel);
 
     ctx.translate(size / 2, size / 2);
 
@@ -663,12 +677,6 @@ export class Renderer {
       ctx.fillText(player.username.slice(0, 1).toUpperCase(), x, y);
     }
     ctx.restore();
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
-    ctx.lineWidth = Math.max(1.5, r * 0.1);
-    ctx.beginPath();
-    ctx.arc(x, y, r + 1, 0, TWO_PI);
-    ctx.stroke();
   }
 
   drawHpRing(player, x, y, r) {
@@ -954,17 +962,17 @@ function lerp(from, to, t) {
 
 function topProfile(player) {
   const tier = hpTier(player.hp);
-  if (tier < 2) return { blades: 0, length: 0, width: 0, base: 0.78, panels: 0, hook: 0, spin: 0.007 };
-
   const hash = stableHash(player.id);
   const ranges = [
+    [0, 3],
     [0, 3],
     [2, 7],
     [4, 11],
     [8, 15],
     [12, 19]
   ];
-  const range = ranges[Math.min(ranges.length - 1, Math.floor((tier - 2) / 2))];
+  const rangeIndex = Math.floor(tier / 2);
+  const range = ranges[Math.min(ranges.length - 1, rangeIndex)];
   const index = range[0] + (hash % (range[1] - range[0] + 1));
   return GEAR_PROFILES[index];
 }
