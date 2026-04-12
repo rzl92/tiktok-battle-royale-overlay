@@ -2,7 +2,7 @@
   "name": "tiktok-battle-royale-overlay",
   "version": "1.0.0",
   "description": "TikTok Live interactive battle royale auto-battler overlay for OBS Browser Source.",
-  "main": "server/index.js",
+  "main": "desktop/main.js",
   "type": "module",
   "scripts": {
     "start": "node server/index.js",

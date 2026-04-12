@@ -94,6 +94,9 @@ export class Renderer {
     if (event.type === "hit") {
       this.pushEffect({ kind: "hit", x: event.x, y: event.y, damage: event.damage, life: 360, max: 360 });
     }
+    if (event.type === "join") {
+      this.pushEffect({ kind: "burst", x: event.x, y: event.y, color: "#ffffff", life: 800, max: 800 });
+    }
     if (event.type === "death") {
       this.pushEffect({ kind: "burst", x: event.x, y: event.y, color: "#ff3d6e", life: 620, max: 620 });
     }

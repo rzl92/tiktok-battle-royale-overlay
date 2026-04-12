@@ -25,12 +25,18 @@ export class BattleEngine {
     const players = this.playerManager.getAlivePlayers();
     this.hitEventBudget = players.length > 100 ? 28 : players.length > 60 ? 42 : 90;
     this.sparkEventBudget = players.length > 80 ? 4 : players.length > 40 ? 8 : 14;
+    
     if (players.length > this.peakPlayerCount) this.peakPlayerCount = players.length;
-    if (players.length > 1) {
-      this.roundWinner = null;
-      this.resetAt = 0;
+
+    if (players.length >= 1) {
+      if (players.length > 1) {
+        this.roundWinner = null;
+        this.resetAt = 0;
+      }
       this.updatePlayers(players, now, dt);
-    } else if (players.length === 1 && this.peakPlayerCount >= 2) {
+    }
+    
+    if (players.length === 1 && this.peakPlayerCount >= 2 && !this.roundWinner) {
       this.handleWinner(players[0], now);
     }
 

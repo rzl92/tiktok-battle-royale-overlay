@@ -6,6 +6,10 @@ const params = new URLSearchParams(window.location.search);
 const backendUrl = params.get("backend") || window.OVERLAY_BACKEND_URL || "";
 const openOverlayLink = document.getElementById("openOverlayLink");
 
+// In desktop mode, we should call our local proxy (port 3173)
+// In local dev mode, we should call the local server (port 3000)
+const isDesktop = window.location.port === "3173";
+
 if (backendUrl && openOverlayLink) {
   openOverlayLink.href = `/client/overlay.html?backend=${encodeURIComponent(backendUrl)}`;
 }
@@ -49,11 +53,11 @@ async function post(path, body) {
 
 async function spawnSwarm(power) {
   const prefix = power ? "whale" : "fighter";
-  for (let i = 1; i <= 40; i += 1) {
+  for (let i = 1; i <= 20; i += 1) {
     const name = `${prefix}_${Math.floor(Math.random() * 9999)}_${i}`;
     const avatarUrl = `https://api.dicebear.com/8.x/pixel-art/svg?seed=${encodeURIComponent(name)}`;
     await fetch(`/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
-    if (power && i <= 8) {
+    if (power && i <= 5) {
       await fetch(`/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
     }
   }

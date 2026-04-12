@@ -9,6 +9,10 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
     const input = getInput(req);
     const result = playerManager.join(input.username);
     if (!result.player) return res.status(400).json({ ok: false, error: result.error });
+    
+    // Broadcast debug info
+    battleEngine.io.emit("debug", `User ${input.username} joined via ${req.path}`);
+    
     const avatarFromPayload = extractAvatarUrl(input);
     if (avatarFromPayload) playerManager.setAvatar(input.username, avatarFromPayload);
     else playerManager.resolveAvatarAsync(input.username);
