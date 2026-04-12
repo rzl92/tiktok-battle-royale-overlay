@@ -285,25 +285,6 @@ export class Renderer {
     const x = screen.x;
     const y = screen.y;
     const spin = time * 0.014 + player.x * 0.01;
-
-    // Route background (non-featured) tops to cheaper renderers based on
-    // player count so the CPU budget stays flat as crowd size grows.
-    if (!showName) {
-      if (detail === "ultra") {
-        this.drawBareTop(x, y, r, player, spin, false);
-        return;
-      }
-      if (detail === "low") {
-        this.drawFastTop(x, y, r, player, spin, false);
-        return;
-      }
-      if (detail === "medium") {
-        this.drawSimpleTop(x, y, r, player, spin, false);
-        return;
-      }
-    }
-
-    // Full quality for featured tops or small player counts.
     const avatarR = r * 0.5;
     const visual = this.getTopVisual(player, time);
 
@@ -1229,9 +1210,9 @@ function hpTier(hp) {
 }
 
 function getDetailLevel(count) {
-  if (count >= 120) return "ultra";
-  if (count >= 60) return "low";
-  if (count >= 30) return "medium";
+  if (count >= 140) return "ultra";
+  if (count >= 70) return "low";
+  if (count >= 45) return "medium";
   return "high";
 }
 
