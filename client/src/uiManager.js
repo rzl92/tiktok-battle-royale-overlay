@@ -18,6 +18,11 @@ function saveSetting(key, value) {
   }
 }
 
+function getBackendUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("backend") || window.OVERLAY_BACKEND_URL || "";
+}
+
 export class UIManager {
   constructor(sound) {
     this.sound = sound;
@@ -32,6 +37,7 @@ export class UIManager {
     this.settingsClose = document.getElementById("settingsClose");
     this.countdownEnabled = document.getElementById("countdownEnabled");
     this.countdownSeconds = document.getElementById("countdownSeconds");
+    this.backendUrl = getBackendUrl();
 
     this._countdownTimer = null;
     this._countdownRemaining = 0;
@@ -126,9 +132,14 @@ export class UIManager {
   }
 
   renderGuideUrls() {
-    const baseUrl = window.location.origin;
-    document.getElementById("overlayUrl").textContent = `${baseUrl}/client/overlay.html`;
-    document.getElementById("giftWebhookUrl").textContent = `${baseUrl}/webhook2`;
+    const webhookBaseUrl = this.backendUrl || window.location.origin;
+    const overlayUrl = this.backendUrl
+      ? `${window.location.origin}/client/overlay.html?backend=${encodeURIComponent(this.backendUrl)}`
+      : `${window.location.origin}/client/overlay.html`;
+    document.getElementById("overlayUrl").textContent = overlayUrl;
+    document.getElementById("joinWebhookUrl").textContent = `${webhookBaseUrl}/webhook1`;
+    document.getElementById("giftWebhookUrl").textContent = `${webhookBaseUrl}/webhook2`;
+    document.getElementById("ultimateWebhookUrl").textContent = `${webhookBaseUrl}/webhook3`;
   }
 
   setSettingsOpen(open) {
@@ -167,7 +178,8 @@ export class UIManager {
     if (isNew) {
       this._stopCountdown();
       if (this.countdownEnabled.checked) {
-        const secs = Math.max(3, Math.min(120, Number(this.countdownSeconds.value) || 15));
+        const parsed = Number(this.countdownSeconds.value);
+        const secs = Math.max(0, Math.min(120, Number.isFinite(parsed) ? parsed : 15));
         this._startCountdown(winner, secs);
       } else {
         this._renderWinnerBanner(winner, null);
@@ -178,6 +190,10 @@ export class UIManager {
   _startCountdown(winner, totalSeconds) {
     this._countdownRemaining = totalSeconds;
     this._renderWinnerBanner(winner, this._countdownRemaining);
+    if (this._countdownRemaining <= 0) {
+      this._resetArena();
+      return;
+    }
 
     this._countdownTimer = setInterval(() => {
       this._countdownRemaining -= 1;
@@ -185,7 +201,7 @@ export class UIManager {
 
       if (this._countdownRemaining <= 0) {
         this._stopCountdown();
-        fetch("/reset").catch(() => {});
+        this._resetArena();
       }
     }, 1000);
   }
@@ -209,9 +225,10 @@ export class UIManager {
           ? `/avatar-proxy?url=${encodeURIComponent(winner.avatarUrl)}`
           : escapeHtml(winner.avatarUrl))
       : null;
+    const initial = escapeHtml(winner.username.slice(0, 1).toUpperCase());
     const avatarHtml = avatarSrc
-      ? `<img class="winner-avatar" src="${avatarSrc}" alt="" onerror="this.style.display='none'">`
-      : `<div class="winner-avatar-placeholder">${escapeHtml(winner.username.slice(0, 1).toUpperCase())}</div>`;
+      ? `<div class="winner-avatar-wrap"><div class="winner-avatar-placeholder">${initial}</div><img class="winner-avatar" src="${avatarSrc}" alt="" onerror="this.style.display='none'"></div>`
+      : `<div class="winner-avatar-placeholder">${initial}</div>`;
 
     this.winnerBanner.innerHTML = `
       <div class="winner-title">&#127942; Battle Winner</div>
@@ -220,6 +237,10 @@ export class UIManager {
       <div class="winner-meta">${winner.kills} kills &middot; ${winner.hp} HP remaining</div>
       ${countdownHtml}
     `;
+  }
+
+  _resetArena() {
+    fetch(`${this.backendUrl || ""}/reset`).catch(() => {});
   }
 
   addEvent(event) {

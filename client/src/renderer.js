@@ -43,7 +43,6 @@ export class Renderer {
     this.avatarCache = new Map();
     this.camera = { x: 540, y: 960 };
     this.lastTime = 0;
-    this.frameMs = 16.7;
     this.background = document.createElement("canvas");
     this.backgroundDirty = true;
 
@@ -167,14 +166,12 @@ export class Renderer {
   render(time) {
     const dt = Math.min(40, time - (this.lastTime || time));
     this.lastTime = time;
-    this.frameMs += (dt - this.frameMs) * 0.08;
-
     const ctx = this.ctx;
     const width = window.innerWidth;
     const height = window.innerHeight;
     const displayPlayers = this.updateDisplayPositions(dt);
     this.updateCamera(dt);
-    const detail = getDetailLevel(displayPlayers.length, this.frameMs);
+    const detail = getDetailLevel(displayPlayers.length);
 
     if (this.backgroundDirty) this.drawBackground();
     ctx.clearRect(0, 0, width, height);
@@ -851,10 +848,10 @@ function strongest(players = []) {
   return [...players].sort((a, b) => b.hp - a.hp)[0] || null;
 }
 
-function getDetailLevel(count, frameMs = 16.7) {
-  if (count >= 140 || frameMs > 28) return "ultra";
-  if (count >= 80 || frameMs > 22) return "low";
-  if (count >= 35) return "medium";
+function getDetailLevel(count) {
+  if (count >= 140) return "ultra";
+  if (count >= 70) return "low";
+  if (count >= 45) return "medium";
   return "high";
 }
 

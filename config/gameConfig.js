@@ -5,7 +5,7 @@ export const gameConfig = {
     safePadding: 70
   },
   player: {
-    baseHP: 15,
+    baseHP: 100,
     giftHPPerCoin: 25,
     baseRadius: 52,
     maxRenderedRadius: 340,
@@ -16,7 +16,8 @@ export const gameConfig = {
       return 1 + Math.min(hp / 220, 12);
     },
     damage(hp, classConfig) {
-      return Math.max(1, Math.floor((2 + Math.floor(hp * 0.03)) * classConfig.damageMultiplier));
+      const baseDamage = 1 + Math.floor(Math.max(0, hp - 100) / 100);
+      return Math.max(1, Math.floor(baseDamage * classConfig.damageMultiplier));
     },
     attackRange(radius, classConfig) {
       // Base = touching distance for two equal tops (2*radius).
@@ -55,7 +56,7 @@ export const gameConfig = {
   },
   laser: {
     cooldownMs: 2200,
-    damageMult: 1.2,
+    damageMult: 1,
     maxRange: 1200
   },
   ultimate: {
