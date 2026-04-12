@@ -346,20 +346,6 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(x, y);
-    
-    // Spinning motion blur arcs
-    ctx.save();
-    ctx.rotate(spin * 2.5);
-    ctx.strokeStyle = hexToRgba(player.accent, 0.4);
-    ctx.lineWidth = Math.max(1, r * 0.05);
-    ctx.lineCap = "round";
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.arc(0, 0, r * (0.8 + i * 0.1), 0, 1.2);
-      ctx.stroke();
-    }
-    ctx.restore();
-
     ctx.rotate(spin * 0.35);
     ctx.fillStyle = player.color;
     ctx.strokeStyle = "#061016";
@@ -407,7 +393,7 @@ export class Renderer {
     canvas.height = size;
     const ctx = canvas.getContext("2d", { alpha: true });
     const r2 = bucketR;
-    const blades = Math.min(8, 3 + Math.floor(tier / 2) + auraLevel);
+    const blades = tier < 2 ? 0 : Math.min(8, 3 + Math.floor(tier / 2) + auraLevel);
 
     ctx.translate(size / 2, size / 2);
 
@@ -677,6 +663,12 @@ export class Renderer {
       ctx.fillText(player.username.slice(0, 1).toUpperCase(), x, y);
     }
     ctx.restore();
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
+    ctx.lineWidth = Math.max(1.5, r * 0.1);
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1, 0, TWO_PI);
+    ctx.stroke();
   }
 
   drawHpRing(player, x, y, r) {
@@ -900,7 +892,7 @@ function offsetPolar(angle, radius, offset) {
   };
 }
 
-// 20 distinct gear profiles — assigned per-player via ID hash for maximum visual variety
+// 20 distinct gear profiles ? assigned per-player via ID hash for maximum visual variety
 const GEAR_PROFILES = [
   { blades: 3,  length: 1.05, width: 0.30, base: 0.60, panels: 3,  hook: 0.26, spin: 0.019 }, //  0 tri-claw
   { blades: 3,  length: 0.88, width: 0.24, base: 0.65, panels: 3,  hook: 0.14, spin: 0.017 }, //  1 tri-wide
@@ -962,17 +954,17 @@ function lerp(from, to, t) {
 
 function topProfile(player) {
   const tier = hpTier(player.hp);
+  if (tier < 2) return { blades: 0, length: 0, width: 0, base: 0.78, panels: 0, hook: 0, spin: 0.007 };
+
   const hash = stableHash(player.id);
   const ranges = [
-    [0, 3],
     [0, 3],
     [2, 7],
     [4, 11],
     [8, 15],
     [12, 19]
   ];
-  const rangeIndex = Math.floor(tier / 2);
-  const range = ranges[Math.min(ranges.length - 1, rangeIndex)];
+  const range = ranges[Math.min(ranges.length - 1, Math.floor((tier - 2) / 2))];
   const index = range[0] + (hash % (range[1] - range[0] + 1));
   return GEAR_PROFILES[index];
 }
@@ -1072,7 +1064,7 @@ function drawLightningBolt(ctx, x1, y1, x2, y2, t, isHit, scale) {
   ctx.restore();
 }
 
-// Electric bolt for laser attacks — forked, flickering, re-randomized every frame
+// Electric bolt for laser attacks ? forked, flickering, re-randomized every frame
 function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
   const pts = buildBoltPts(x1, y1, x2, y2, 11, 0.22);
 
@@ -1105,7 +1097,7 @@ function drawElectricBolt(ctx, x1, y1, x2, y2, t, scale) {
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 
-  // Fork branches (2–3 smaller bolts from random midpoints)
+  // Fork branches (2?3 smaller bolts from random midpoints)
   const dx = x2 - x1;
   const dy = y2 - y1;
   const blen = Math.hypot(dx, dy);
@@ -1158,7 +1150,7 @@ function buildBoltPts(x1, y1, x2, y2, segments, jitterFrac) {
 
 // Returns health bar fill color based on HP ratio.
 // High HP players with aura keep their aura color. Everyone else:
-// 75-100% green → 50-75% yellow → 25-50% orange → 0-25% red
+// 75-100% green ? 50-75% yellow ? 25-50% orange ? 0-25% red
 function hpBarColor(ratio, hp, auraColor) {
   if (hp >= 1000) return auraColor;
   if (ratio > 0.75) return "#36ec88";
