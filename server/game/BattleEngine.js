@@ -106,7 +106,7 @@ export class BattleEngine {
 
         this.tryFireLaser(player, target, now, players);
       } else {
-        this.wanderNatural(player, now, dt);
+        this.wanderNatural(player, now, dt, target);
         if (target) this.tryFireLaser(player, target, now, players);
       }
 
@@ -150,20 +150,27 @@ export class BattleEngine {
     }
   }
 
-  wanderNatural(player, now, dt) {
-    // Smooth heading drift: we steer toward a slowly rotating desired direction
-    // instead of snapping velocity. This keeps wander motion continuous.
+  wanderNatural(player, now, dt, target = null) {
     if (typeof player.wanderHeading !== "number") {
       player.wanderHeading = Math.atan2(player.vy, player.vx) || Math.random() * Math.PI * 2;
     }
     if (!player.nextImpulseAt || now >= player.nextImpulseAt) {
-      // Nudge heading by a small random delta (±45°) rather than pick a fresh angle.
       player.wanderHeading += (Math.random() - 0.5) * (Math.PI / 2);
       player.nextImpulseAt = now + 700 + Math.random() * 900;
     }
-    // Continuous heading drift for organic curve.
     player.wanderHeading += (Math.random() - 0.5) * 0.08;
-    const desiredSpeed = player.speed * 0.55;
+
+    // Bias heading toward target so tops drift into each other instead of
+    // orbiting forever. 30% blend keeps motion organic.
+    if (target) {
+      const desired = Math.atan2(target.y - player.y, target.x - player.x);
+      let diff = desired - player.wanderHeading;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      player.wanderHeading += diff * 0.30;
+    }
+
+    const desiredSpeed = player.speed * 0.7;
     const desiredX = Math.cos(player.wanderHeading) * desiredSpeed;
     const desiredY = Math.sin(player.wanderHeading) * desiredSpeed;
     this.steer(player, desiredX, desiredY);

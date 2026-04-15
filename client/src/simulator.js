@@ -50,13 +50,27 @@ async function post(path, body) {
 async function spawnSwarm(power) {
   const prefix = power ? "whale" : "fighter";
   const total = power ? 20 : 40;
+  const concurrency = 8;
+  const jobs = [];
   for (let i = 1; i <= total; i += 1) {
-    const name = `${prefix}_${Math.floor(Math.random() * 9999)}_${i}`;
+    const idx = i;
+    const name = `${prefix}_${Math.floor(Math.random() * 9999)}_${idx}`;
     const avatarUrl = `https://api.dicebear.com/8.x/pixel-art/svg?seed=${encodeURIComponent(name)}`;
-    await fetch(`${backendUrl}/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
-    if (power && i <= 5) {
-      await fetch(`${backendUrl}/webhook2?username=${encodeURIComponent(name)}&coins=${i * 45}`);
-    }
+    jobs.push(async () => {
+      await fetch(`${backendUrl}/webhook1?username=${encodeURIComponent(name)}&profilePictureUrl=${encodeURIComponent(avatarUrl)}`);
+      if (power && idx <= 5) {
+        await fetch(`${backendUrl}/webhook2?username=${encodeURIComponent(name)}&coins=${idx * 45}`);
+      }
+    });
   }
+  // Run jobs with bounded concurrency so we don't open 40 sockets at once
+  // but also don't serialize into 40 round-trips.
+  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
+    while (jobs.length) {
+      const job = jobs.shift();
+      if (job) await job();
+    }
+  });
+  await Promise.all(workers);
   result.textContent = `${power ? "Power whales" : "Bots"} spawned.`;
 }

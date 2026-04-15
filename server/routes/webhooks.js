@@ -72,10 +72,22 @@ const AVATAR_PATHS = [
 export function createWebhookRouter({ playerManager, battleEngine }) {
   const router = express.Router();
   const debugRequests = [];
-  const queue = createActionQueue();
+  // Jobs are synchronous JS — no race is possible in a single-threaded
+  // runtime. A serial queue only adds latency and can silently skip
+  // handlers on client disconnect, so we run each handler directly.
+  const run = (res, job) => {
+    Promise.resolve()
+      .then(job)
+      .catch((error) => {
+        console.error("Webhook handler error:", error);
+        if (!res.headersSent) {
+          res.status(500).json({ ok: false, error: "Internal webhook error" });
+        }
+      });
+  };
 
   router.all(["/webhook1", "/join", "/api/join"], (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const debugRecord = rememberDebugRequest(debugRequests, req);
       const input = normalizeInput(req);
       debugRecord.normalized = input.debug;
@@ -102,7 +114,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.all(["/webhook2", "/gift", "/api/gift"], (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const debugRecord = rememberDebugRequest(debugRequests, req);
       const input = normalizeInput(req);
       debugRecord.normalized = input.debug;
@@ -133,7 +145,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.all(["/webhook3", "/ultimate", "/api/ultimate"], (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const debugRecord = rememberDebugRequest(debugRequests, req);
       const input = normalizeInput(req);
       debugRecord.normalized = input.debug;
@@ -166,7 +178,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.all(["/webhook4", "/reset", "/api/reset"], (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const event = battleEngine.manualReset("manual");
       res.json({
         ok: true,
@@ -190,7 +202,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.post("/avatar", (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const input = normalizeInput(req);
       if (!assertValidUsername(input, res, "avatar")) return;
       const avatarUrl = playerManager.setAvatar(input.username, input.avatarUrl);
@@ -204,7 +216,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.post("/settings/round", (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const seconds = req.body?.resetSeconds ?? req.query?.resetSeconds ?? req.body?.seconds ?? req.query?.seconds;
       const settings = battleEngine.setRoundResetSeconds(seconds);
       res.json({ ok: true, action: "settings.round", ...settings });
@@ -216,7 +228,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.post("/settings/battle-timer", (req, res) => {
-    queue.enqueue(res, () => {
+    run(res, () => {
       const settings = battleEngine.setBattleTimerSettings({
         enabled: req.body?.enabled ?? req.query?.enabled,
         durationSeconds: req.body?.durationSeconds ?? req.query?.durationSeconds ?? req.body?.seconds ?? req.query?.seconds
@@ -226,7 +238,7 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   router.post("/settings/wins/reset", (req, res) => {
-    queue.enqueue(res, async () => {
+    run(res, async () => {
       const result = await battleEngine.resetWins();
       res.json({
         ok: true,
@@ -240,24 +252,6 @@ export function createWebhookRouter({ playerManager, battleEngine }) {
   });
 
   return router;
-}
-
-function createActionQueue() {
-  let tail = Promise.resolve();
-  return {
-    enqueue(res, job) {
-      const run = tail.then(async () => {
-        if (!res.headersSent) await job();
-      });
-      tail = run.catch((error) => {
-        console.error("Webhook queue error:", error);
-        if (!res.headersSent) {
-          res.status(500).json({ ok: false, error: "Internal webhook queue error" });
-        }
-      });
-      return tail;
-    }
-  };
 }
 
 function normalizeInput(req) {

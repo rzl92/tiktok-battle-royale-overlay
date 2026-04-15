@@ -1,13 +1,5 @@
 const TWO_PI = Math.PI * 2;
 const MAX_EFFECTS = 70;
-// At 60 TPS (16ms/tick), 60ms = ~3.6 ticks buffer — enough to absorb the
-// 31ms max-jitter Windows timers produce without falling into extrapolation.
-const INTERPOLATION_DELAY_MS = 60;
-// How far ahead to extrapolate when no new server sample has arrived.
-// 120ms handles brief packet drops without freezing motion.
-const MAX_EXTRAPOLATION_MS = 260;
-// How many server snapshots to keep per player for interpolation.
-const PLAYER_SAMPLE_LIMIT = 16;
 
 // HP tier palette. Players with the same HP range get the same color.
 const HP_COLORS = [
@@ -67,23 +59,43 @@ export class Renderer {
       if (!current) {
         this.displayPlayers.set(player.id, {
           ...player,
-          samples: [{ time: now, x: player.x, y: player.y }],
+          // targetX/Y is the latest server-reported position we smooth toward.
+          targetX: player.x,
+          targetY: player.y,
+          // vx/vy are the smoother's internal velocity state (px/ms).
+          vx: 0,
+          vy: 0,
           color: palette.color,
-          accent: palette.accent
+          accent: palette.accent,
+          spin: Math.random() * TWO_PI,
+          spinBaseSpeed: 0.0065 + Math.random() * 0.0045,
+          spinSpeed: 0.0065 + Math.random() * 0.0045,
+          spinDir: Math.random() < 0.15 ? -1 : 1,
+          // Wobble offset for beyblade precession (figure-8 drift).
+          wobblePhase: Math.random() * TWO_PI,
+          wobbleRate: 0.003 + Math.random() * 0.002,
+          _posInit: false
         });
       } else {
-        current.samples.push({ time: now, x: player.x, y: player.y });
-        if (current.samples.length > PLAYER_SAMPLE_LIMIT) {
-          current.samples.splice(0, current.samples.length - PLAYER_SAMPLE_LIMIT);
-        }
-
-        Object.assign(current, player, {
+        // Preserve smoother/spin state; only update target and meta.
+        const keep = {
           x: current.x,
           y: current.y,
-          samples: current.samples,
+          targetX: player.x,
+          targetY: player.y,
+          vx: current.vx,
+          vy: current.vy,
           color: palette.color,
-          accent: palette.accent
-        });
+          accent: palette.accent,
+          spin: current.spin,
+          spinBaseSpeed: current.spinBaseSpeed,
+          spinSpeed: current.spinSpeed,
+          spinDir: current.spinDir,
+          wobblePhase: current.wobblePhase,
+          wobbleRate: current.wobbleRate,
+          _posInit: current._posInit
+        };
+        Object.assign(current, player, keep);
       }
     }
 
@@ -234,22 +246,44 @@ export class Renderer {
   }
 
   updateDisplayPositions(dt) {
-    const renderTime = performance.now() - INTERPOLATION_DELAY_MS;
+    // Clamp dt so a long background stall (tab switch) can't teleport tops.
+    const stepDt = Math.min(48, Math.max(1, dt));
     for (const player of this.displayPlayers.values()) {
-      const target = samplePlayerPosition(player.samples, renderTime);
       if (!player._posInit) {
-        // First frame: snap immediately, no smoothing.
-        player.x = target.x;
-        player.y = target.y;
+        player.x = player.targetX;
+        player.y = player.targetY;
+        player.vx = 0;
+        player.vy = 0;
         player._posInit = true;
       } else {
-        // Frame-rate independent smoothing (~90ms half-life). Softer than
-        // before so single-tick server jerks (collision bounces, phase
-        // changes) don't read as blinks.
-        const alpha = 1 - Math.pow(0.001, dt / 600);
-        player.x += (target.x - player.x) * alpha;
-        player.y += (target.y - player.y) * alpha;
+        // Critically-damped smoothDamp (Game Programming Gems 4).
+        // smoothTime ~= 90ms → reaches target in a few frames with zero
+        // overshoot and zero jitter regardless of server-tick arrival
+        // jitter. This is what makes the motion feel "continuous".
+        const smoothTime = 90;
+        const res = smoothDamp(player.x, player.targetX, player.vx, smoothTime, stepDt);
+        player.x = res.value;
+        player.vx = res.velocity;
+        const resY = smoothDamp(player.y, player.targetY, player.vy, smoothTime, stepDt);
+        player.y = resY.value;
+        player.vy = resY.velocity;
       }
+
+      // Spin speed scales with current smoothed velocity, not raw deltas,
+      // so bounces don't whip the rotation.
+      const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+      const hpFactor = 0.78 + Math.min(1, (player.hp || 100) / 150) * 0.32;
+      const targetSpinSpeed = (player.spinBaseSpeed + speed * 0.0022) * hpFactor;
+      const ease = 1 - Math.pow(0.001, stepDt / 350);
+      player.spinSpeed += (targetSpinSpeed - player.spinSpeed) * ease;
+      player.spin += player.spinSpeed * player.spinDir * stepDt;
+
+      // Beyblade precession: tiny circular wobble around the target.
+      // Amplitude scales with radius so big tops wobble more, and with
+      // inverse HP so damaged tops become visibly unstable.
+      player.wobblePhase += player.wobbleRate * stepDt;
+      const hpWobble = 1 + Math.max(0, (100 - (player.hp || 100)) / 120);
+      player.wobbleAmp = Math.min(2.4, (player.radius || 32) * 0.018 * hpWobble);
     }
     return [...this.displayPlayers.values()];
   }
@@ -293,9 +327,11 @@ export class Renderer {
   drawTop(player, time, showName, detail, isCrowned = false) {
     const screen = this.worldToScreen(player);
     const r = Math.max(10, player.radius * screen.scale);
-    const x = screen.x;
-    const y = screen.y;
-    const spin = time * 0.014 + player.x * 0.01;
+    // Beyblade precession wobble — small circular drift around screen pos.
+    const amp = player.wobbleAmp || 0;
+    const x = screen.x + Math.cos(player.wobblePhase || 0) * amp;
+    const y = screen.y + Math.sin((player.wobblePhase || 0) * 1.37) * amp * 0.7;
+    const spin = player.spin ?? (time * 0.014);
     const avatarR = r * 0.5;
     const visual = this.getTopVisual(player, time);
 
@@ -1174,41 +1210,20 @@ function offsetPolar(angle, radius, offset) {
   };
 }
 
-function samplePlayerPosition(samples = [], renderTime) {
-  if (samples.length === 0) return { x: 0, y: 0 };
-  if (samples.length === 1 || renderTime <= samples[0].time) {
-    return { x: samples[0].x, y: samples[0].y };
-  }
-
-  for (let i = 0; i < samples.length - 1; i += 1) {
-    const from = samples[i];
-    const to = samples[i + 1];
-    if (renderTime <= to.time) {
-      const span = Math.max(1, to.time - from.time);
-      const t = (renderTime - from.time) / span;
-      return {
-        x: lerp(from.x, to.x, t),
-        y: lerp(from.y, to.y, t)
-      };
-    }
-  }
-
-  const latest = samples[samples.length - 1];
-  const previous = samples[samples.length - 2];
-  if (!previous) return { x: latest.x, y: latest.y };
-
-  const span = Math.max(1, latest.time - previous.time);
-  const overrun = Math.min(MAX_EXTRAPOLATION_MS, Math.max(0, renderTime - latest.time));
-  const t = overrun / span;
-  return {
-    x: latest.x + (latest.x - previous.x) * t,
-    y: latest.y + (latest.y - previous.y) * t
-  };
+// Critically-damped spring smoother. Returns { value, velocity }.
+// smoothTime: approximate time (ms) to reach target. dt in ms.
+// Produces jitter-free motion under irregular server tick arrival.
+function smoothDamp(current, target, velocity, smoothTime, dt) {
+  const omega = 2 / Math.max(1, smoothTime);
+  const x = omega * dt;
+  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const change = current - target;
+  const temp = (velocity + omega * change) * dt;
+  const newVelocity = (velocity - omega * temp) * exp;
+  const newValue = target + (change + temp) * exp;
+  return { value: newValue, velocity: newVelocity };
 }
 
-function lerp(from, to, t) {
-  return from + (to - from) * t;
-}
 
 function hpPalette(hp) {
   return HP_COLORS[hpTier(hp)];
