@@ -68,9 +68,9 @@ export class Renderer {
           color: palette.color,
           accent: palette.accent,
           spin: Math.random() * TWO_PI,
-          spinBaseSpeed: 0.0065 + Math.random() * 0.0045,
-          spinSpeed: 0.0065 + Math.random() * 0.0045,
-          spinDir: Math.random() < 0.15 ? -1 : 1,
+          spinBaseSpeed: 0.0105 + Math.random() * 0.007,
+          spinSpeed: 0.0105 + Math.random() * 0.007,
+          spinDir: Math.random() < 0.22 ? -1 : 1,
           // Wobble offset for beyblade precession (figure-8 drift).
           wobblePhase: Math.random() * TWO_PI,
           wobbleRate: 0.003 + Math.random() * 0.002,
@@ -260,7 +260,7 @@ export class Renderer {
         // smoothTime ~= 90ms → reaches target in a few frames with zero
         // overshoot and zero jitter regardless of server-tick arrival
         // jitter. This is what makes the motion feel "continuous".
-        const smoothTime = 90;
+        const smoothTime = 52;
         const res = smoothDamp(player.x, player.targetX, player.vx, smoothTime, stepDt);
         player.x = res.value;
         player.vx = res.velocity;
@@ -273,7 +273,7 @@ export class Renderer {
       // so bounces don't whip the rotation.
       const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
       const hpFactor = 0.78 + Math.min(1, (player.hp || 100) / 150) * 0.32;
-      const targetSpinSpeed = (player.spinBaseSpeed + speed * 0.0022) * hpFactor;
+      const targetSpinSpeed = (player.spinBaseSpeed + speed * 0.0039) * hpFactor;
       const ease = 1 - Math.pow(0.001, stepDt / 350);
       player.spinSpeed += (targetSpinSpeed - player.spinSpeed) * ease;
       player.spin += player.spinSpeed * player.spinDir * stepDt;
@@ -283,7 +283,7 @@ export class Renderer {
       // inverse HP so damaged tops become visibly unstable.
       player.wobblePhase += player.wobbleRate * stepDt;
       const hpWobble = 1 + Math.max(0, (100 - (player.hp || 100)) / 120);
-      player.wobbleAmp = Math.min(2.4, (player.radius || 32) * 0.018 * hpWobble);
+      player.wobbleAmp = Math.min(5.5, (player.radius || 32) * 0.032 * hpWobble);
     }
     return [...this.displayPlayers.values()];
   }

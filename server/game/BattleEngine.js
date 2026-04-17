@@ -69,6 +69,8 @@ export class BattleEngine {
     const byId = new Map(players.map((player) => [player.id, player]));
 
     for (const player of players) {
+      this.ensureTopSpinTraits(player);
+
       if (now - player.lastTargetScanAt > this.config.combat.targetScanIntervalMs) {
         player.targetId = this.findTarget(player, players)?.id || null;
         player.lastTargetScanAt = now;
@@ -78,7 +80,7 @@ export class BattleEngine {
 
       const target = byId.get(player.targetId);
 
-      if (player.phase === "attack" && target) {
+      if (target) {
         const dx = target.x - player.x;
         const dy = target.y - player.y;
         const distance = Math.hypot(dx, dy) || 1;
@@ -89,17 +91,22 @@ export class BattleEngine {
         const contactThreshold = physicalContactDist * (this.config.combat.attackContactScale || 0.88);
 
         if (distance > contactThreshold) {
-          const orbit = distance < contactThreshold * 2.4 ? this.config.physics.orbitStrength * 0.5 : 0.06;
-          const desiredX = nx * player.speed + -ny * player.speed * orbit;
-          const desiredY = ny * player.speed + nx * player.speed * orbit;
+          const close = distance < contactThreshold * 2.4;
+          const orbit = close ? this.config.physics.orbitStrength : 0.18;
+          const charge = distance > contactThreshold * 1.6 ? 2.15 : 1.22;
+          const desiredX = nx * player.speed * charge + -ny * player.speed * orbit * player.orbitDir;
+          const desiredY = ny * player.speed * charge + nx * player.speed * orbit * player.orbitDir;
           this.steer(player, desiredX, desiredY);
+          this.tryBattleTopDash(player, nx, ny, now, distance);
           this.move(player, dt);
         } else {
-          const jitter = (Math.random() - 0.5) * 0.2;
+          const jitter = (Math.random() - 0.5) * 0.32;
           this.steer(player,
-            nx * player.speed + -ny * player.speed * jitter,
-            ny * player.speed + nx * player.speed * jitter
+            nx * player.speed * 1.65 + -ny * player.speed * jitter,
+            ny * player.speed * 1.65 + nx * player.speed * jitter
           );
+          player.vx += nx * player.speed * 0.08;
+          player.vy += ny * player.speed * 0.08;
           this.move(player, dt);
           this.tryAttack(player, target, now);
         }
@@ -107,7 +114,6 @@ export class BattleEngine {
         this.tryFireLaser(player, target, now, players);
       } else {
         this.wanderNatural(player, now, dt, target);
-        if (target) this.tryFireLaser(player, target, now, players);
       }
 
       // Soft center pull with deadzone so tops drift naturally until far from middle.
@@ -125,6 +131,25 @@ export class BattleEngine {
     }
 
     this.resolveCollisions(players);
+  }
+
+  ensureTopSpinTraits(player) {
+    if (!player.orbitDir) player.orbitDir = Math.random() < 0.5 ? -1 : 1;
+    if (!player.nextDashAt) player.nextDashAt = Date.now() + 220 + Math.random() * 480;
+    if (!player.lastCollisionDamageAt) player.lastCollisionDamageAt = new Map();
+  }
+
+  tryBattleTopDash(player, nx, ny, now, distance) {
+    if (now < player.nextDashAt) return;
+    const speed = Math.hypot(player.vx, player.vy);
+    const lowSpeedBonus = speed < player.speed * 2.4 ? 1.45 : 0.9;
+    const distanceBonus = distance > player.radius * 3 ? 1.35 : 1.05;
+    const force = player.speed * (3.4 + Math.random() * 1.8) * lowSpeedBonus * distanceBonus;
+    const tangent = (Math.random() - 0.5) * player.speed * 0.72;
+    player.vx += nx * force + -ny * tangent * player.orbitDir;
+    player.vy += ny * force + nx * tangent * player.orbitDir;
+    player.nextDashAt = now + 220 + Math.random() * 420;
+    this.capVelocity(player);
   }
 
   updatePhase(player, byId, now) {
@@ -616,6 +641,7 @@ export class BattleEngine {
     const separatingVelocity = relativeVx * nx + relativeVy * ny;
     if (separatingVelocity > 0) return;
 
+    const impactSpeed = Math.abs(separatingVelocity);
     const impulse = (-(1 + this.config.physics.collisionBounce) * separatingVelocity) / (1 / massA + 1 / massB);
     const impulseX = impulse * nx;
     const impulseY = impulse * ny;
@@ -623,8 +649,17 @@ export class BattleEngine {
     a.vy -= impulseY / massA;
     b.vx += impulseX / massB;
     b.vy += impulseY / massB;
+    const tangentX = -ny;
+    const tangentY = nx;
+    const scrape = Math.min(180, impactSpeed * 0.35);
+    a.vx -= tangentX * scrape * (a.orbitDir || 1);
+    a.vy -= tangentY * scrape * (a.orbitDir || 1);
+    b.vx += tangentX * scrape * (b.orbitDir || -1);
+    b.vy += tangentY * scrape * (b.orbitDir || -1);
     this.capVelocity(a);
     this.capVelocity(b);
+    this.tryCollisionDamage(a, b, impactSpeed);
+    this.tryCollisionDamage(b, a, impactSpeed);
 
     // Force brief disengage so tops don't stick after a hit.
     const cooldown = this.config.combat.postCollisionWanderMs || [400, 700];
@@ -635,18 +670,19 @@ export class BattleEngine {
     if (a.phase !== "wander" || a.phaseEndsAt < until) {
       a.phase = "wander";
       a.phaseEndsAt = until;
-      a.nextImpulseAt = until + 300;
+      a.nextImpulseAt = until + 120 + Math.random() * 180;
       a.wanderHeading = Math.atan2(a.vy, a.vx);
+      a.targetId = b.id;
     }
     if (b.phase !== "wander" || b.phaseEndsAt < until) {
       b.phase = "wander";
       b.phaseEndsAt = until;
-      b.nextImpulseAt = until + 300;
+      b.nextImpulseAt = until + 120 + Math.random() * 180;
       b.wanderHeading = Math.atan2(b.vy, b.vx);
+      b.targetId = a.id;
     }
 
     // Spark at contact surface point (only if collision has meaningful speed)
-    const impactSpeed = Math.abs(separatingVelocity);
     if (this.sparkEventBudget > 0 && impactSpeed > 40) {
       this.sparkEventBudget -= 1;
       // Contact point: on surface of a toward b
@@ -658,6 +694,21 @@ export class BattleEngine {
         speed: Math.min(1, impactSpeed / 300)
       });
     }
+  }
+
+  tryCollisionDamage(attacker, target, impactSpeed) {
+    const minSpeed = this.config.combat.collisionDamageMinSpeed || 120;
+    if (!attacker.alive || !target.alive || impactSpeed < minSpeed) return;
+
+    const now = Date.now();
+    if (!attacker.lastCollisionDamageAt) attacker.lastCollisionDamageAt = new Map();
+    const cooldown = this.config.combat.collisionDamageCooldownMs || 260;
+    if (now - (attacker.lastCollisionDamageAt.get(target.id) || 0) < cooldown) return;
+    attacker.lastCollisionDamageAt.set(target.id, now);
+
+    const impactDamage = Math.floor((impactSpeed - minSpeed) / 180);
+    const damage = Math.max(1, Math.min(1, impactDamage + Math.ceil(attacker.damage * 0.2)));
+    this.damagePlayer({ attacker, target, damage, type: "strike" });
   }
 
   capVelocity(player) {

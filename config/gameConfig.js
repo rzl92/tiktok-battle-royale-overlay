@@ -24,10 +24,10 @@ export const gameConfig = {
       return 1 + (maxScale - 1) * eased;
     },
     damage(hp, classConfig) {
-      const baseDamage = hp <= 100 ? 1 : 2 + Math.floor(Math.max(0, hp - 101) / 100);
+      const baseDamage = hp <= 100 ? 1 : 1 + Math.floor(Math.max(0, hp - 101) / 140);
       const gearBlades = hp <= 25 ? 0 : Math.min(10, 2 + Math.floor(Math.max(0, hp - 26) / 100));
-      const gearBonus = gearBlades <= 0 ? 0.78 : 1 + (gearBlades - 2) * 0.12;
-      const hpPressure = 1 + Math.min(hp / 5000, 0.8);
+      const gearBonus = gearBlades <= 0 ? 0.7 : 0.9 + (gearBlades - 2) * 0.08;
+      const hpPressure = 1 + Math.min(hp / 5000, 0.55);
       return Math.max(1, Math.floor(baseDamage * gearBonus * hpPressure * classConfig.damageMultiplier));
     },
     attackRange(radius, classConfig) {
@@ -48,32 +48,34 @@ export const gameConfig = {
     ]
   },
   combat: {
-    targetScanIntervalMs: 160,
-    attackCooldownMs: 650,
+    targetScanIntervalMs: 60,
+    attackCooldownMs: 1200,
     maxPlayers: 200,
-    idleWanderTurnChance: 0.055,
-    attackContactScale: 0.88,
+    idleWanderTurnChance: 0.09,
+    attackContactScale: 1.28,
     giantSlayerBonusHpStep: 500,
     giantSlayerMaxBonus: 12,
-    wanderDurationMs: [800, 1600],
-    attackDurationMs: [2200, 3800],
-    engageChance: 0.70,
-    engageRadiusMultiplier: 5.0,
-    postCollisionWanderMs: [400, 700]
+    wanderDurationMs: [80, 220],
+    attackDurationMs: [5000, 9000],
+    engageChance: 1,
+    engageRadiusMultiplier: 12,
+    postCollisionWanderMs: [35, 90],
+    collisionDamageMinSpeed: 180,
+    collisionDamageCooldownMs: 1000
   },
   physics: {
-    friction: 0.984,
-    steering: 0.105,
-    orbitStrength: 0.46,
-    collisionBounce: 0.85,
-    collisionPush: 0.06,
-    hitKnockback: 190,
-    attackerRecoil: 55,
-    maxVelocity: 760,
-    spinJitter: 0.04,
+    friction: 0.996,
+    steering: 0.24,
+    orbitStrength: 0.58,
+    collisionBounce: 1.16,
+    collisionPush: 0.34,
+    hitKnockback: 380,
+    attackerRecoil: 130,
+    maxVelocity: 1280,
+    spinJitter: 0.12,
     collisionCellSize: 700,
-    collisionContactScale: 0.70,
-    centerPullStrength: 0.035,
+    collisionContactScale: 0.86,
+    centerPullStrength: 0.055,
     centerPullDeadzone: 240,
     boostImpulseBase: 220,
     boostImpulseMax: 680
