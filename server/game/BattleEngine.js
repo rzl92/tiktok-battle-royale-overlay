@@ -80,7 +80,7 @@ export class BattleEngine {
 
       const target = byId.get(player.targetId);
 
-      if (target) {
+      if (player.phase === "attack" && target) {
         const dx = target.x - player.x;
         const dy = target.y - player.y;
         const distance = Math.hypot(dx, dy) || 1;
@@ -92,8 +92,8 @@ export class BattleEngine {
 
         if (distance > contactThreshold) {
           const close = distance < contactThreshold * 2.4;
-          const orbit = close ? this.config.physics.orbitStrength : 0.18;
-          const charge = distance > contactThreshold * 1.6 ? 2.15 : 1.22;
+          const orbit = close ? this.config.physics.orbitStrength : 0.24;
+          const charge = distance > contactThreshold * 1.75 ? 1.34 : 0.82;
           const desiredX = nx * player.speed * charge + -ny * player.speed * orbit * player.orbitDir;
           const desiredY = ny * player.speed * charge + nx * player.speed * orbit * player.orbitDir;
           this.steer(player, desiredX, desiredY);
@@ -102,11 +102,9 @@ export class BattleEngine {
         } else {
           const jitter = (Math.random() - 0.5) * 0.32;
           this.steer(player,
-            nx * player.speed * 1.65 + -ny * player.speed * jitter,
-            ny * player.speed * 1.65 + nx * player.speed * jitter
+            nx * player.speed * 1.12 + -ny * player.speed * jitter,
+            ny * player.speed * 1.12 + nx * player.speed * jitter
           );
-          player.vx += nx * player.speed * 0.08;
-          player.vy += ny * player.speed * 0.08;
           this.move(player, dt);
           this.tryAttack(player, target, now);
         }
@@ -114,6 +112,7 @@ export class BattleEngine {
         this.tryFireLaser(player, target, now, players);
       } else {
         this.wanderNatural(player, now, dt, target);
+        if (target) this.tryFireLaser(player, target, now, players);
       }
 
       // Soft center pull with deadzone so tops drift naturally until far from middle.
@@ -142,13 +141,13 @@ export class BattleEngine {
   tryBattleTopDash(player, nx, ny, now, distance) {
     if (now < player.nextDashAt) return;
     const speed = Math.hypot(player.vx, player.vy);
-    const lowSpeedBonus = speed < player.speed * 2.4 ? 1.45 : 0.9;
-    const distanceBonus = distance > player.radius * 3 ? 1.35 : 1.05;
-    const force = player.speed * (3.4 + Math.random() * 1.8) * lowSpeedBonus * distanceBonus;
-    const tangent = (Math.random() - 0.5) * player.speed * 0.72;
+    const lowSpeedBonus = speed < player.speed * 1.4 ? 1.18 : 0.78;
+    const distanceBonus = distance > player.radius * 4 ? 1.08 : 0.86;
+    const force = player.speed * (1.65 + Math.random() * 0.9) * lowSpeedBonus * distanceBonus;
+    const tangent = (Math.random() - 0.5) * player.speed * 0.5;
     player.vx += nx * force + -ny * tangent * player.orbitDir;
     player.vy += ny * force + nx * tangent * player.orbitDir;
-    player.nextDashAt = now + 220 + Math.random() * 420;
+    player.nextDashAt = now + 1300 + Math.random() * 1900;
     this.capVelocity(player);
   }
 
@@ -350,8 +349,8 @@ export class BattleEngine {
     }
     caster.lastUltimateAt = now;
 
-    const { rayCount, maxRange, damageMult, dashForce } = this.config.ultimate;
-    const damage = Math.max(1, Math.round(caster.damage * damageMult));
+    const { rayCount, maxRange, damageMult, hpPercentDamage, minDamage, maxDamage, dashForce } = this.config.ultimate;
+    const flatDamage = Math.max(1, Math.round(caster.damage * damageMult));
     const enemies = this.playerManager.getAlivePlayers().filter((p) => p.id !== caster.id);
     const rays = [];
     const range = Math.max(maxRange, Math.hypot(this.config.arena.width, this.config.arena.height));
@@ -366,7 +365,13 @@ export class BattleEngine {
       const dist = Math.hypot(dx, dy) || 1;
       const nx = dx / dist;
       const ny = dy / dist;
-      rays.push({ angle: Math.atan2(dy, dx), length: dist, hit: true });
+      const percentDamage = Math.ceil(enemy.hp * Math.max(0, hpPercentDamage || 0));
+      const damage = clamp(
+        Math.max(flatDamage, percentDamage, minDamage || 1),
+        minDamage || 1,
+        maxDamage || Infinity
+      );
+      rays.push({ angle: Math.atan2(dy, dx), length: dist, hit: true, damage });
       this.damagePlayer({ attacker: caster, target: enemy, damage, type: "ultimate" });
       enemy.vx += nx * 360;
       enemy.vy += ny * 360;
